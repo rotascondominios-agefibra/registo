@@ -414,6 +414,7 @@
           if (idx >= 0) { h[idx].sent = true; h[idx].serverResponse = res; saveHistory(h); }
           showToast('Registro enviado com sucesso');
         } else {
+          console.warn('sendToServer returned not ok:', res);
           showToast('Falha ao enviar. Ficará pendente.', 4000);
         }
       } catch (err) {
@@ -423,25 +424,49 @@
       refreshHistoryList();
     });
 
-    /* ---------- Send to Apps Script ---------- */
+    /* ---------- Send to Apps Script (CORRIGIDA) ---------- */
     async function sendToServer(payload){
       if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('SEU_DEPLOY_ID')) {
         console.warn('APPS_SCRIPT_URL não configurado — simulando envio (sem POST).');
         return {ok:true, simulated:true};
       }
+
+      // include token in body (Apps Script reads token from JSON body)
       const body = JSON.stringify(Object.assign({}, payload, { token: API_TOKEN }));
-      const r = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type':'application/json',
-          'X-Requested-With':'XMLHttpRequest',
-          'X-Auth-Token': API_TOKEN
-        },
-        body
-      });
-      if (!r.ok) return { ok:false, httpStatus: r.status, text: await r.text() };
-      const json = await r.json().catch(()=>({ok:true}));
-      return { ok:true, response: json };
+
+      try {
+        const r = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type':'application/json'
+          },
+          body
+        });
+
+        // HTTP not OK
+        if (!r.ok) {
+          const txt = await r.text().catch(()=>'<no-body>');
+          console.warn('HTTP error from Apps Script', r.status, txt);
+          // common situations: 401 invalid token, 403 permission, 404 url wrong
+          return { ok:false, httpStatus: r.status, text: txt };
+        }
+
+        // try parse JSON, fallback to text
+        let json;
+        try {
+          json = await r.json();
+        } catch (err) {
+          const txt = await r.text().catch(()=>null);
+          json = { ok:true, raw: txt };
+        }
+
+        return { ok:true, response: json };
+
+      } catch (err) {
+        // network-level error (CORS blocked, offline, DNS, etc.)
+        console.error('Network error sending to Apps Script:', err);
+        return { ok:false, networkError:true, message: err && err.message ? err.message : String(err) };
+      }
     }
 
     /* ---------- History UI ---------- */
