@@ -40,8 +40,7 @@
 
     main{flex:1;display:flex;flex-direction:column;padding:10px;gap:10px}
 
-    /* Mobile-first: map on top, panel bottom */
-    #map{height:48vh;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+    #map{height:40vh;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
     .controls{display:flex;gap:10px;flex-wrap:wrap}
     button{
       border:0;border-radius:12px;padding:12px 14px;font-size:var(--touch);box-shadow:0 2px 8px rgba(0,0,0,0.06);
@@ -51,7 +50,7 @@
     button.block{display:block;width:100%}
     .panel{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
     label{display:block;font-size:0.9rem;color:var(--muted);margin-top:8px}
-    input[type=text], textarea, select{
+    input[type=text], input[type=number], textarea, select{
       width:100%;padding:10px;border-radius:10px;border:1px solid #e9e9ef;margin-top:6px;font-size:1rem;
       box-sizing:border-box;
     }
@@ -61,13 +60,12 @@
     .status-bad{color:var(--danger);font-weight:700}
     footer{padding:10px;text-align:center;font-size:0.85rem;color:var(--muted)}
 
-    /* Modal */
     .modal-backdrop{position:fixed;inset:0;display:none;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;z-index:9999}
     .modal{background:white;border-radius:12px;padding:16px;width:92%;max-width:520px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
     .toast{position:fixed;right:14px;bottom:14px;background:#111;color:white;padding:10px 14px;border-radius:12px;opacity:0;transform:translateY(16px);transition:all .25s}
     .toast.show{opacity:1;transform:translateY(0)}
+    .muted-note{font-size:0.85rem;color:#777;margin-top:8px}
 
-    /* For desktop a two-column layout */
     @media(min-width:900px){
       main{flex-direction:row;padding:16px}
       #map{height:70vh;flex:1}
@@ -83,11 +81,11 @@
     </header>
 
     <main>
-      <div id="map" aria-label="Mapa"></div>
+      <div id="map" aria-label="Mapa" style="display:none"></div>
 
       <div class="panel" id="panel">
         <div id="locationBanner" style="margin-bottom:8px">
-          <div id="locationStatus" class="small">Solicitando permissão de localização... <span id="locIcon">🔄</span></div>
+          <div id="locationStatus" class="small">Localização: opcional (pode usar ou não).</div>
           <div id="accuracyDisplay" class="small" style="margin-top:6px"></div>
         </div>
 
@@ -104,12 +102,14 @@
         <label for="obsInput">Observação (como foi a visita)</label>
         <textarea id="obsInput" placeholder="Descreva brevemente como foi a visita..."></textarea>
 
+        <div class="muted-note">Se quiser, permita localização para preencher latitude/longitude automaticamente. Caso contrário, você pode registrar sem localização.</div>
+
         <div style="height:10px"></div>
 
         <div class="controls">
-          <button id="btnRegister" class="primary block" disabled>Registrar visita (local obrigatório)</button>
+          <button id="btnRegister" class="primary block">Registrar visita</button>
+          <button id="btnUseLocation" class="block">Usar localização atual (opcional)</button>
           <button id="btnHistory" class="block">Ver histórico</button>
-          <button id="btnChangeName" class="block">Trocar executivo</button>
         </div>
 
         <hr style="margin:12px 0">
@@ -125,18 +125,17 @@
         <div style="margin-top:12px" class="small">
           <strong>Observações importantes:</strong>
           <ul>
-            <li>O sistema exige PERMISSÃO de localização. Sem isso, não é possível registrar.</li>
-            <li>Use no celular (navegador móvel). O app tenta obter a posição mais precisa possível.</li>
-            <li>Substitua APPS_SCRIPT_URL e API_TOKEN no topo do arquivo antes de publicar.</li>
+            <li>Localização é opcional — o registro será aceito mesmo sem ela (depende do Apps Script aceitar registros sem lat/long).</li>
+            <li>Se quiser que o servidor aceite registros sem localização, atualize o Apps Script (veja nota após o código).</li>
           </ul>
         </div>
       </div>
     </main>
 
-    <footer>Feito para Age Fibra — v1.1 (Localização obrigatória)</footer>
+    <footer>Feito para Age Fibra — v1.2 (Localização opcional)</footer>
   </div>
 
-  <!-- Modals -->
+  <!-- Name modal -->
   <div id="nameModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal">
       <h3>Bem-vindo</h3>
@@ -148,27 +147,39 @@
     </div>
   </div>
 
+  <!-- Register modal (also allow manual lat/lng) -->
   <div id="registerModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal">
       <h3>Confirmar Registro</h3>
-      <p class="small" id="regLocationInfo">Obtendo localização...</p>
-      <label>Nome do condomínio</label>
+      <p class="small" id="regLocationInfo">Latitude/Longitude: (opcional)</p>
+
+      <label for="m_condo">Nome do condomínio</label>
       <input id="m_condo" type="text" />
+
+      <label>Latitude (opcional)</label>
+      <input id="m_lat" type="number" step="0.000001" placeholder="Ex: -23.550520" />
+
+      <label>Longitude (opcional)</label>
+      <input id="m_lng" type="number" step="0.000001" placeholder="Ex: -46.633308" />
+
       <label>Status</label>
       <select id="m_status">
         <option value="Carta assinada">Carta assinada</option>
         <option value="Assinatura em andamento">Assinatura em andamento</option>
         <option value="Carta não assinada">Carta não assinada</option>
       </select>
+
       <label>Observação</label>
       <textarea id="m_obs"></textarea>
+
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
         <button id="btnRegCancel">Cancelar</button>
-        <button id="btnRegConfirm" class="primary">Confirmar (com localização)</button>
+        <button id="btnRegConfirm" class="primary">Confirmar registro</button>
       </div>
     </div>
   </div>
 
+  <!-- History modal -->
   <div id="historyModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal" style="max-height:80vh;overflow:auto">
       <h3>Histórico local</h3>
@@ -179,60 +190,33 @@
     </div>
   </div>
 
-  <div id="locationDeniedModal" class="modal-backdrop">
-    <div class="modal">
-      <h3>Localização necessária</h3>
-      <p class="small">Este aplicativo exige acesso à localização para registrar visitas. Ative a localização nas configurações do navegador/telefone e recarregue a página.</p>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-        <button id="btnReload">Recarregar</button>
-      </div>
-    </div>
-  </div>
-
   <div id="toast" class="toast"></div>
 
   <script>
     /* ---------- Config / Utils ---------- */
-    // If APPS_SCRIPT_URL / API_TOKEN not configured, app will work but not actually POST.
     if (typeof APPS_SCRIPT_URL === 'undefined' || typeof API_TOKEN === 'undefined') {
       console.warn('APPS_SCRIPT_URL/API_TOKEN devem ser definidos no topo do arquivo.');
     }
 
-    // Local keys
     const KEY_NAME = 'executiveName_v1';
     const KEY_HISTORY = 'visitHistory_v1';
     const KEY_DEVICE = 'deviceId_v1';
 
-    function uuidv4(){
-      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-      );
-    }
-    function getOrCreateDeviceId(){
-      let id = localStorage.getItem(KEY_DEVICE);
-      if (!id) { id = uuidv4(); localStorage.setItem(KEY_DEVICE, id); }
-      return id;
-    }
+    function uuidv4(){ return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
+    function getOrCreateDeviceId(){ let id = localStorage.getItem(KEY_DEVICE); if (!id) { id = uuidv4(); localStorage.setItem(KEY_DEVICE, id); } return id; }
     const DEVICE_ID = getOrCreateDeviceId();
 
-    function showToast(msg, time=3200){
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.classList.add('show');
-      setTimeout(()=> t.classList.remove('show'), time);
-    }
+    function showToast(msg, time=3200){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), time); }
 
     /* ---------- Elements ---------- */
     const nameModal = document.getElementById('nameModal');
     const nameInput = document.getElementById('nameInput');
     const btnNameSave = document.getElementById('btnNameSave');
     const userDisplay = document.getElementById('userDisplay');
-    const btnChangeName = document.getElementById('btnChangeName');
 
     const btnRegister = document.getElementById('btnRegister');
+    const btnUseLocation = document.getElementById('btnUseLocation');
     const btnHistory = document.getElementById('btnHistory');
-    const btnRetryPending = document.getElementById('btnRetryPending');
-    const btnClearLocal = document.getElementById('btnClearLocal');
 
     const condoInput = document.getElementById('condoInput');
     const statusSelect = document.getElementById('statusSelect');
@@ -245,6 +229,8 @@
     const registerModal = document.getElementById('registerModal');
     const regLocationInfo = document.getElementById('regLocationInfo');
     const m_condo = document.getElementById('m_condo');
+    const m_lat = document.getElementById('m_lat');
+    const m_lng = document.getElementById('m_lng');
     const m_obs = document.getElementById('m_obs');
     const m_status = document.getElementById('m_status');
     const btnRegCancel = document.getElementById('btnRegCancel');
@@ -254,43 +240,28 @@
     const historyList = document.getElementById('historyList');
     const btnHistoryClose = document.getElementById('btnHistoryClose');
 
-    const locationDeniedModal = document.getElementById('locationDeniedModal');
-    const btnReload = document.getElementById('btnReload');
+    const toastEl = document.getElementById('toast');
 
-    // Map
+    // Map & location
     let map, userMarker, accuracyCircle;
-    let lastKnownPos = null; // {latitude,longitude,accuracy,timestamp}
-    let watchId = null;
-    let locationAvailable = false; // MUST be true to allow register
+    let lastKnownPos = null;
+    let locationAvailable = false;
 
     /* ---------- History helpers ---------- */
     function loadHistory(){ return JSON.parse(localStorage.getItem(KEY_HISTORY) || '[]'); }
     function saveHistory(h){ localStorage.setItem(KEY_HISTORY, JSON.stringify(h)); updateSyncStatus(); }
     function addHistoryEntry(entry){ const h = loadHistory(); h.unshift(entry); saveHistory(h); }
 
-    function updateSyncStatus(){
-      const h = loadHistory();
-      const total = h.length;
-      const pending = h.filter(x=>!x.sent).length;
-      syncStatus.textContent = pending === 0 ? 'Tudo sincronizado' : `${pending} pendente(s) / ${total} total`;
-      syncStatus.style.color = pending === 0 ? 'var(--success)' : 'var(--danger)';
-    }
+    function updateSyncStatus(){ const h=loadHistory(); const pending=h.filter(x=>!x.sent).length; syncStatus.textContent = pending===0 ? 'Tudo sincronizado' : `${pending} pendente(s)`; syncStatus.style.color = pending===0 ? 'var(--success)' : 'var(--danger)'; }
 
-    /* ---------- Map & Geolocation (mandatory) ---------- */
+    /* ---------- Map init (only if we have a position) ---------- */
     function initMap(){
+      if (map) return;
       map = L.map('map', {zoomControl:false, tap:true}).setView([-15.793889, -47.882778], 4);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
       userMarker = L.circleMarker([0,0], {radius:10, weight:2, opacity:0.95}).setStyle({fillColor: '#ff7a00', color:'#fff'});
       accuracyCircle = L.circle([0,0], {radius:0, color:'#ffbb88', fillOpacity:0.08});
-    }
-
-    function setLocationUnavailable(msg){
-      locationAvailable = false;
-      locationStatus.innerHTML = `<span class="status-bad">Localização indisponível</span> — ${msg}`;
-      accuracyDisplay.textContent = '';
-      btnRegister.disabled = true;
-      // show modal that guides user to enable location
-      locationDeniedModal.style.display = 'flex';
+      document.getElementById('map').style.display = 'block';
     }
 
     function updatePosition(pos){
@@ -298,77 +269,52 @@
       const lon = pos.coords.longitude;
       const acc = pos.coords.accuracy || 0;
       lastKnownPos = {latitude:lat, longitude:lon, accuracy:acc, timestamp: Date.now()};
-
-      if (!map) initMap();
+      initMap();
       if (!map.hasLayer(userMarker)) userMarker.addTo(map);
       if (!map.hasLayer(accuracyCircle)) accuracyCircle.addTo(map);
       userMarker.setLatLng([lat,lon]);
       accuracyCircle.setLatLng([lat,lon]).setRadius(acc);
-
-      // zoom only first time or if user moved far
       map.setView([lat,lon], 17, {animate:true});
-
       locationAvailable = true;
       locationStatus.innerHTML = `<span class="status-ok">Local obtido</span> • ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
       accuracyDisplay.textContent = `Precisão: ~${Math.round(acc)} m`;
-      btnRegister.disabled = false;
-      // hide location denied modal if visible
-      locationDeniedModal.style.display = 'none';
     }
 
     function handleGeoError(err){
       console.warn('Geolocation error', err);
-      if (err.code === 1) {
-        setLocationUnavailable('Permissão negada. Ative a localização no navegador/telefone.');
-      } else if (err.code === 2) {
-        setLocationUnavailable('Posição indisponível. Mova-se para área externa ou verifique o sinal.');
-      } else if (err.code === 3) {
-        setLocationUnavailable('Timeout ao obter localização. Tente novamente.');
-      } else {
-        setLocationUnavailable('Erro ao obter localização.');
-      }
+      locationAvailable = false;
+      lastKnownPos = null;
+      locationStatus.innerHTML = `<span class="status-bad">Localização indisponível</span> — você pode registrar sem localização.`;
+      accuracyDisplay.textContent = '';
     }
 
-    function startWatchPosition(){
+    function startWatchPositionOptional(){
       if (!('geolocation' in navigator)) {
-        setLocationUnavailable('Geolocation não suportado neste dispositivo.');
+        handleGeoError({code:0, message:'Geolocation não suportado'});
         return;
       }
-      // Immediate try
-      navigator.geolocation.getCurrentPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, timeout:10000});
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, maximumAge:3000, timeout:10000});
+      navigator.geolocation.getCurrentPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, timeout:8000});
+      // keep a gentle watch to update if movement occurs
+      navigator.geolocation.watchPosition((p)=> updatePosition(p), (e)=> {/* ignore further errors */}, {enableHighAccuracy:false, maximumAge:10000});
     }
 
-    /* ---------- Mandatory getCurrentPosition with timeout ---------- */
-    function getCurrentPositionPromise(opts){
-      return new Promise((resolve, reject)=>{
-        if (!('geolocation' in navigator)) return reject(new Error('Geolocation não suportado'));
-        navigator.geolocation.getCurrentPosition(resolve, reject, opts);
-      });
-    }
-
-    /* ---------- Register flow (enforce fresh location) ---------- */
-    document.getElementById('btnRegister').addEventListener('click', openRegisterModal);
-
-    async function openRegisterModal(){
-      // ensure mandatory fresh position
-      regLocationInfo.textContent = 'Obtendo localização atual...';
-      registerModal.style.display = 'flex';
+    /* ---------- Register modal flow (location optional) ---------- */
+    btnRegister.addEventListener('click', ()=>{
+      // prefill modal with quick values
       m_condo.value = condoInput.value || '';
       m_obs.value = obsInput.value || '';
       m_status.value = statusSelect.value || 'Carta assinada';
-
-      try {
-        const pos = await getCurrentPositionPromise({enableHighAccuracy:true, timeout:8000});
-        regLocationInfo.textContent = `Lat ${pos.coords.latitude.toFixed(6)} • Lng ${pos.coords.longitude.toFixed(6)} • precisão ~${Math.round(pos.coords.accuracy)} m`;
-      } catch (err) {
-        // cannot get fresh position -> block confirm
-        regLocationInfo.textContent = 'Não foi possível obter posição. Permita localização e tente novamente.';
-        showToast('Localização obrigatória — verifique permissões.', 4000);
-        // keep modal open but disable confirm
+      if (lastKnownPos) {
+        regLocationInfo.textContent = `Local detectado: ${lastKnownPos.latitude.toFixed(6)}, ${lastKnownPos.longitude.toFixed(6)} (precisão ~${Math.round(lastKnownPos.accuracy)} m). Você pode ajustar os campos abaixo se quiser.`;
+        m_lat.value = lastKnownPos.latitude;
+        m_lng.value = lastKnownPos.longitude;
+      } else {
+        regLocationInfo.textContent = 'Nenhuma localização automática disponível. Você pode inserir latitude/longitude manualmente (opcional) ou confirmar sem localização.';
+        m_lat.value = '';
+        m_lng.value = '';
       }
-    }
+      registerModal.style.display = 'flex';
+    });
 
     btnRegCancel.addEventListener('click', ()=> registerModal.style.display = 'none');
 
@@ -376,28 +322,35 @@
       const cond = m_condo.value.trim();
       if (!cond) { alert('Informe o nome do condomínio.'); m_condo.focus(); return; }
 
-      // MUST obtain a fresh position right now; if fails, abort.
-      let pos;
-      try {
-        pos = await getCurrentPositionPromise({enableHighAccuracy:true, timeout:8000});
-      } catch (err) {
-        showToast('Registro cancelado — não foi possível obter localização atual (obrigatória).', 4500);
-        registerModal.style.display = 'none';
-        return;
+      // Use priority: manual inputs if provided, otherwise lastKnownPos if exists, otherwise nulls
+      let lat = null, lng = null, acc = '';
+      if (m_lat.value && m_lng.value) {
+        lat = Number(m_lat.value);
+        lng = Number(m_lng.value);
+      } else if (lastKnownPos) {
+        lat = lastKnownPos.latitude;
+        lng = lastKnownPos.longitude;
+        acc = lastKnownPos.accuracy || '';
       }
 
-      // build payload
       const payload = {
         timestamp: new Date().toISOString(),
         executivo: getUserName(),
         condominio: cond,
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-        accuracy: pos.coords.accuracy || 0,
         status: m_status.value,
         obs: m_obs.value || '',
         device_id: DEVICE_ID
       };
+
+      // include lat/lng only if we have numeric values
+      if (lat !== null && Number.isFinite(lat) && lng !== null && Number.isFinite(lng)) {
+        payload.latitude = lat;
+        payload.longitude = lng;
+        payload.accuracy = acc;
+      } else {
+        // indicate in payload that location not provided (optional flag)
+        payload.location_provided = false;
+      }
 
       // save local and try to send
       const entry = { id: uuidv4(), payload, sent:false, created_at: new Date().toISOString() };
@@ -408,7 +361,6 @@
       try {
         const res = await sendToServer(payload);
         if (res && res.ok) {
-          // mark as sent
           const h = loadHistory();
           const idx = h.findIndex(x => x.id === entry.id);
           if (idx >= 0) { h[idx].sent = true; h[idx].serverResponse = res; saveHistory(h); }
@@ -424,52 +376,48 @@
       refreshHistoryList();
     });
 
-    /* ---------- Send to Apps Script (CORRIGIDA) ---------- */
+    /* ---------- Use location now (optional) ---------- */
+    btnUseLocation.addEventListener('click', ()=>{
+      // try to get a fresh position; show quick feedback
+      if (!('geolocation' in navigator)) { alert('Geolocation não suportado'); return; }
+      locationStatus.textContent = 'Solicitando posição...';
+      navigator.geolocation.getCurrentPosition((p)=> { updatePosition(p); showToast('Localização obtida'); }, (e)=> { handleGeoError(e); alert('Não foi possível obter localização'); }, {enableHighAccuracy:true, timeout:10000});
+    });
+
+    /* ---------- Send to Apps Script (safe, no custom headers) ---------- */
     async function sendToServer(payload){
       if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('SEU_DEPLOY_ID')) {
         console.warn('APPS_SCRIPT_URL não configurado — simulando envio (sem POST).');
         return {ok:true, simulated:true};
       }
 
-      // include token in body (Apps Script reads token from JSON body)
+      // ensure token included in body for server validation
       const body = JSON.stringify(Object.assign({}, payload, { token: API_TOKEN }));
 
       try {
         const r = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type':'application/json'
-          },
+          headers: { 'Content-Type':'application/json' },
           body
         });
 
-        // HTTP not OK
         if (!r.ok) {
           const txt = await r.text().catch(()=>'<no-body>');
           console.warn('HTTP error from Apps Script', r.status, txt);
-          // common situations: 401 invalid token, 403 permission, 404 url wrong
           return { ok:false, httpStatus: r.status, text: txt };
         }
 
-        // try parse JSON, fallback to text
         let json;
-        try {
-          json = await r.json();
-        } catch (err) {
-          const txt = await r.text().catch(()=>null);
-          json = { ok:true, raw: txt };
-        }
-
+        try { json = await r.json(); } catch (err) { json = { ok:true, raw: await r.text().catch(()=>null) }; }
         return { ok:true, response: json };
 
       } catch (err) {
-        // network-level error (CORS blocked, offline, DNS, etc.)
         console.error('Network error sending to Apps Script:', err);
         return { ok:false, networkError:true, message: err && err.message ? err.message : String(err) };
       }
     }
 
-    /* ---------- History UI ---------- */
+    /* ---------- History UI (same as before) ---------- */
     document.getElementById('btnHistory').addEventListener('click', ()=> {
       refreshHistoryList();
       historyModal.style.display = 'flex';
@@ -493,7 +441,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div><strong>${escapeHtml(p.condominio)}</strong><div class="small">${new Date(item.created_at).toLocaleString()}</div></div>
             <div style="text-align:right">
-              <div class="small">${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}</div>
+              <div class="small">${p.latitude ? p.latitude.toFixed ? p.latitude.toFixed(6) : p.latitude : '—'}, ${p.longitude ? p.longitude.toFixed ? p.longitude.toFixed(6) : p.longitude : '—'}</div>
               <div style="margin-top:6px"><span style="font-weight:700;color:${item.sent ? 'var(--success)' : 'var(--danger)'}">${item.sent ? 'Enviado' : 'Pendente'}</span></div>
             </div>
           </div>
@@ -503,7 +451,6 @@
             <button class="tiny-delete">Apagar</button>
           </div>
         `;
-        // buttons
         const btnRetry = el.querySelector('.tiny-retry');
         btnRetry.disabled = item.sent;
         btnRetry.addEventListener('click', async ()=>{
@@ -562,21 +509,12 @@
       const v = nameInput.value.trim();
       if (!v) { alert('Digite seu nome.'); nameInput.focus(); return; }
       setUserName(v);
-      // After name set, start geolocation flow
       startAfterName();
-    });
-
-    btnChangeName.addEventListener('click', ()=>{
-      if (!confirm('Trocar o nome do executivo?')) return;
-      localStorage.removeItem(KEY_NAME);
-      location.reload();
     });
 
     /* ---------- Initial boot ---------- */
     window.addEventListener('load', ()=>{
-      // map init lightweight
-      initMap();
-
+      // map hidden until we have a position
       const uname = getUserName();
       if (!uname) {
         nameModal.style.display = 'flex';
@@ -585,27 +523,18 @@
         startAfterName();
       }
 
-      // input quick registration: enable register when condo filled AND location available
-      condoInput.addEventListener('input', ()=>{
-        btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
-      });
+      condoInput.addEventListener('input', ()=>{ /* no-op */ });
 
-      // register via quick panel: open modal (which will re-check location)
-      // already wired above
-
-      // modals close by clicking backdrop
+      // modal backdrop closing
       document.getElementById('nameModal').addEventListener('click', (e)=>{ if (e.target === nameModal) nameModal.style.display='flex'; });
       registerModal.addEventListener('click', (e)=>{ if (e.target === registerModal) registerModal.style.display='none'; });
       historyModal.addEventListener('click', (e)=>{ if (e.target === historyModal) historyModal.style.display='none'; });
 
-      btnReload.addEventListener('click', ()=> window.location.reload());
     });
 
     function startAfterName(){
-      // Immediately start asking for location (mandatory)
-      startWatchPosition();
-      // ensure registers disabled until locationAvailable
-      btnRegister.disabled = true;
+      // optional geolocation attempt (no blocking)
+      startWatchPositionOptional();
       updateSyncStatus();
       refreshHistoryList();
     }
@@ -613,7 +542,7 @@
     /* ---------- Helpers ---------- */
     function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
 
-    // expose for debug
+    // debug helpers
     window.__app = { getHistory: loadHistory, clearHistory: ()=>{ localStorage.removeItem(KEY_HISTORY); }, getName: getUserName };
 
   </script>
