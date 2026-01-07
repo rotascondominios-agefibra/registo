@@ -32,9 +32,7 @@
     #map{height:44vh;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06);display:none}
     .panel{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
     label{display:block;font-size:0.9rem;color:var(--muted);margin-top:8px}
-    input[type=text], input[type=number], textarea, select, button{
-      width:100%;padding:10px;border-radius:10px;border:1px solid #e9e9ef;margin-top:6px;font-size:1rem;box-sizing:border-box;
-    }
+    input[type=text], input[type=number], textarea, select, button{width:100%;padding:10px;border-radius:10px;border:1px solid #e9e9ef;margin-top:6px;font-size:1rem;box-sizing:border-box;}
     textarea{resize:vertical;min-height:80px}
     .controls{display:flex;gap:10px;flex-wrap:wrap}
     button{cursor:pointer}
@@ -47,6 +45,9 @@
     .modal{background:white;border-radius:12px;padding:16px;width:92%;max-width:520px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
     .toast{position:fixed;right:14px;bottom:14px;background:#111;color:white;padding:10px 14px;border-radius:12px;opacity:0;transform:translateY(16px);transition:all .25s}
     .toast.show{opacity:1;transform:translateY(0)}
+    .tiny { padding:6px 8px;border-radius:8px;border:0;cursor:pointer }
+    .tiny.link { background:#e8f0ff;color:#0b57d0;border:1px solid #cce0ff }
+    .tiny.danger { background:#ffecec;color:#b30d0d;border:1px solid #ffcccc }
     @media(min-width:900px){ main{flex-direction:row;padding:16px} #map{height:70vh;flex:1} .panel{width:420px;flex:0 0 420px} }
   </style>
 </head>
@@ -92,17 +93,12 @@
         <div class="small">
           <strong>Sincronização:</strong> <span id="syncStatus">—</span>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button id="btnRetryPending" class="block">Reenviar pendentes</button>
-          <button id="btnClearLocal" class="block">Limpar pendentes</button>
-        </div>
 
         <div style="margin-top:12px" class="small">
           <strong>Observações importantes:</strong>
           <ul>
             <li>A localização é obrigatória: sem permissão não é possível registrar.</li>
             <li>Permita a localização no navegador/telefone e clique em "Solicitar localização agora".</li>
-            <li>Se estiver com problema de permissão, veja as configurações do navegador/telefone e recarregue a página.</li>
           </ul>
         </div>
       </div>
@@ -243,7 +239,6 @@
       locationStatus.innerHTML = `<span class="status-bad">Localização indisponível</span> — ${msg}`;
       accuracyDisplay.textContent = '';
       btnRegister.disabled = true;
-      // show instruction to user
     }
 
     function updatePosition(pos){
@@ -258,7 +253,6 @@
       userMarker.setLatLng([lat,lon]);
       accuracyCircle.setLatLng([lat,lon]).setRadius(acc);
 
-      // zoom
       map.setView([lat,lon], 17, {animate:true});
 
       locationAvailable = true;
@@ -285,13 +279,11 @@
         setLocationUnavailable('Geolocation não suportado neste dispositivo.');
         return;
       }
-      // Immediate try to get a position
       navigator.geolocation.getCurrentPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, timeout:10000});
       if (watchId) navigator.geolocation.clearWatch(watchId);
       watchId = navigator.geolocation.watchPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, maximumAge:3000, timeout:10000});
     }
 
-    /* ---------- Promise wrapper to get current position (fresh) ---------- */
     function getCurrentPositionPromise(opts){
       return new Promise((resolve, reject)=>{
         if (!('geolocation' in navigator)) return reject(new Error('Geolocation não suportado'));
@@ -303,21 +295,18 @@
     btnRegister.addEventListener('click', openRegisterModal);
 
     async function openRegisterModal(){
-      // prefill
       m_condo.value = condoInput.value || '';
       m_obs.value = obsInput.value || '';
       m_status.value = statusSelect.value || 'Carta assinada';
       regLocationInfo.textContent = 'Obtendo localização atual...';
       registerModal.style.display = 'flex';
 
-      // enforce fresh location and block confirm if cannot get it
       try {
         const pos = await getCurrentPositionPromise({enableHighAccuracy:true, timeout:8000});
         regLocationInfo.textContent = `Lat ${pos.coords.latitude.toFixed(6)} • Lng ${pos.coords.longitude.toFixed(6)} • precisão ~${Math.round(pos.coords.accuracy)} m`;
       } catch (err) {
         regLocationInfo.textContent = 'Não foi possível obter posição. Permita localização e tente novamente.';
         showToast('Localização obrigatória — verifique permissões.', 4000);
-        // keep modal open but user cannot confirm
       }
     }
 
@@ -327,7 +316,6 @@
       const cond = m_condo.value.trim();
       if (!cond) { alert('Informe o nome do condomínio.'); m_condo.focus(); return; }
 
-      // MUST obtain a fresh position right now; if fails, abort.
       let pos;
       try {
         pos = await getCurrentPositionPromise({enableHighAccuracy:true, timeout:8000});
@@ -337,7 +325,6 @@
         return;
       }
 
-      // build payload with mandatory lat/lng
       const payload = {
         timestamp: new Date().toISOString(),
         executivo: getUserName(),
@@ -350,7 +337,6 @@
         device_id: DEVICE_ID
       };
 
-      // save local and try to send
       const entry = { id: uuidv4(), payload, sent:false, created_at: new Date().toISOString() };
       addHistoryEntry(entry);
       registerModal.style.display = 'none';
@@ -358,12 +344,27 @@
 
       try {
         const res = await sendToServer(payload);
-        if (res && (res.ok === true || res.ok)) {
-          // mark as sent
+        // res: { ok:true, response: {...} } or { ok:false, ... }
+        if (res && res.ok && res.response) {
+          // update entry with maps_url if returned
+          const maps = res.response.maps_url || (res.response && res.response.maps_url) || null;
+          const h = loadHistory();
+          const idx = h.findIndex(x => x.id === entry.id);
+          if (idx >= 0) {
+            h[idx].sent = true;
+            if (maps) {
+              h[idx].payload.maps_url = maps;
+            }
+            h[idx].serverResponse = res.response;
+            saveHistory(h);
+          }
+          showToast('Registro enviado com sucesso');
+        } else if (res && res.ok && !res.response) {
+          // older servers might return raw ok
           const h = loadHistory();
           const idx = h.findIndex(x => x.id === entry.id);
           if (idx >= 0) { h[idx].sent = true; h[idx].serverResponse = res; saveHistory(h); }
-          showToast('Registro enviado com sucesso');
+          showToast('Registro enviado (resposta não JSON)');
         } else {
           console.warn('sendToServer returned not ok:', res);
           showToast('Falha ao enviar. Ficará pendente.', 4000);
@@ -382,42 +383,32 @@
         return {ok:true, simulated:true};
       }
 
-      // Build FormData to avoid preflight
       const form = new FormData();
       form.append('token', API_TOKEN);
-      // Append payload fields
       Object.keys(payload).forEach(k => {
         if (payload[k] !== undefined && payload[k] !== null) form.append(k, String(payload[k]));
       });
 
       try {
-        const r = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          body: form
-          // no headers -> no preflight
-        });
+        const r = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form });
+        const text = await r.text().catch(()=>'');
+
+        let json = null;
+        try { json = text ? JSON.parse(text) : null; } catch (e) { /* not JSON */ }
 
         if (!r.ok) {
-          const txt = await r.text().catch(()=>'<no-body>');
-          console.warn('HTTP error from Apps Script', r.status, txt);
-          return { ok:false, httpStatus: r.status, text: txt };
+          console.warn('HTTP error from Apps Script', r.status, text);
+          return { ok:false, httpStatus: r.status, text, response: json };
         }
 
-        // parse JSON if possible
-        const text = await r.text();
-        try {
-          return JSON.parse(text);
-        } catch (e) {
-          return { ok:true, raw: text };
-        }
-
+        return { ok:true, response: json || text };
       } catch (err) {
         console.error('Network error sending to Apps Script:', err);
         return { ok:false, networkError:true, message: err && err.message ? err.message : String(err) };
       }
     }
 
-    /* ---------- History UI ---------- */
+    /* ---------- History UI (updated to show maps link) ---------- */
     document.getElementById('btnHistory').addEventListener('click', ()=> {
       refreshHistoryList();
       historyModal.style.display = 'flex';
@@ -433,47 +424,78 @@
         return;
       }
       for (const item of h) {
-        const p = item.payload;
+        const p = item.payload || {};
         const el = document.createElement('div');
         el.style.padding = '10px';
         el.style.borderBottom = '1px solid #f1f1f3';
+
+        const latText = (p.latitude !== undefined && p.latitude !== null && Number.isFinite(Number(p.latitude))) ? Number(p.latitude).toFixed(6) : '—';
+        const lngText = (p.longitude !== undefined && p.longitude !== null && Number.isFinite(Number(p.longitude))) ? Number(p.longitude).toFixed(6) : '—';
+
+        // maps link present?
+        const mapsUrl = p.maps_url || (item.serverResponse && item.serverResponse.maps_url) || (item.serverResponse && item.serverResponse.response && item.serverResponse.response.maps_url) || null;
+
         el.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><strong>${escapeHtml(p.condominio)}</strong><div class="small">${new Date(item.created_at).toLocaleString()}</div></div>
+            <div><strong>${escapeHtml(p.condominio || '')}</strong><div class="small">${new Date(item.created_at).toLocaleString()}</div></div>
             <div style="text-align:right">
-              <div class="small">${Number(p.latitude).toFixed ? Number(p.latitude).toFixed(6) : p.latitude || '—'}, ${Number(p.longitude).toFixed ? Number(p.longitude).toFixed(6) : p.longitude || '—'}</div>
+              <div class="small">${latText}, ${lngText}</div>
               <div style="margin-top:6px"><span style="font-weight:700;color:${item.sent ? 'var(--success)' : 'var(--danger)'}">${item.sent ? 'Enviado' : 'Pendente'}</span></div>
             </div>
           </div>
           <div style="margin-top:8px" class="small">${escapeHtml(p.obs || '')}</div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="tiny-retry">Reenviar</button>
-            <button class="tiny-delete">Apagar</button>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="tiny link">${mapsUrl ? 'Abrir no Maps' : 'Sem link'}</button>
+            <button class="tiny">Reenviar</button>
+            <button class="tiny danger">Apagar</button>
           </div>
         `;
-        // retry
-        const btnRetry = el.querySelector('.tiny-retry');
+
+        // maps button
+        const btnMaps = el.querySelector('.tiny.link');
+        if (mapsUrl) {
+          btnMaps.addEventListener('click', ()=> {
+            window.open(mapsUrl, '_blank', 'noopener');
+          });
+        } else {
+          btnMaps.disabled = true;
+          btnMaps.style.opacity = '0.6';
+          btnMaps.style.cursor = 'not-allowed';
+        }
+
+        // reenviar
+        const btnRetry = el.querySelectorAll('.tiny')[1];
         btnRetry.disabled = item.sent;
         btnRetry.addEventListener('click', async ()=>{
           try {
             const r = await sendToServer(item.payload);
-            if (r && (r.ok === true || r.ok)) {
-              item.sent = true;
-              item.serverResponse = r;
-              saveHistory(loadHistory());
+            if (r && r.ok) {
+              // update maps_url if provided
+              const returned = r.response || null;
+              const mapsReturned = returned && returned.maps_url ? returned.maps_url : null;
+              const hist = loadHistory();
+              const idx = hist.findIndex(x => x.id === item.id);
+              if (idx >= 0) {
+                hist[idx].sent = true;
+                if (mapsReturned) hist[idx].payload.maps_url = mapsReturned;
+                hist[idx].serverResponse = returned;
+                saveHistory(hist);
+              }
               refreshHistoryList();
               showToast('Reenvio OK');
             } else showToast('Falha ao reenviar');
           } catch (err) { showToast('Erro de rede'); }
         });
-        // delete
-        const btnDel = el.querySelector('.tiny-delete');
+
+        // apagar
+        const btnDel = el.querySelectorAll('.tiny')[2];
         btnDel.addEventListener('click', ()=>{
           if (!confirm('Excluir registro local?')) return;
           const arr = loadHistory().filter(x => x.id !== item.id);
           saveHistory(arr);
           refreshHistoryList();
         });
+
         historyList.appendChild(el);
       }
       updateSyncStatus();
@@ -487,9 +509,12 @@
       for (const entry of pend) {
         try {
           const r = await sendToServer(entry.payload);
-          if (r && (r.ok === true || r.ok)) {
+          if (r && r.ok) {
+            const returned = r.response || null;
+            const mapsReturned = returned && returned.maps_url ? returned.maps_url : null;
             entry.sent = true;
-            entry.serverResponse = r;
+            if (mapsReturned) entry.payload.maps_url = mapsReturned;
+            entry.serverResponse = returned;
           }
         } catch (err) { console.warn(err); }
       }
@@ -511,12 +536,10 @@
       const v = nameInput.value.trim();
       if (!v) { alert('Digite seu nome.'); nameInput.focus(); return; }
       setUserName(v);
-      // after name set, start geolocation watch
       startAfterName();
     });
 
     document.getElementById('btnUseLocation').addEventListener('click', ()=>{
-      // user explicitly requests a fresh position
       locationStatus.textContent = 'Solicitando posição...';
       getCurrentPositionPromise({enableHighAccuracy:true, timeout:10000})
         .then(p => { updatePosition(p); showToast('Localização obtida'); })
@@ -525,7 +548,6 @@
 
     /* ---------- Initial boot ---------- */
     window.addEventListener('load', ()=>{
-      // map init lightweight only when location obtained
       const uname = getUserName();
       if (!uname) {
         nameModal.style.display = 'flex';
@@ -534,7 +556,6 @@
         startAfterName();
       }
 
-      // enable register button only when both name and location and condo filled
       condoInput.addEventListener('input', ()=> {
         btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
       });
@@ -548,9 +569,8 @@
     });
 
     function startAfterName(){
-      // start watching location (mandatory)
       startWatchPosition();
-      btnRegister.disabled = true; // until locationAvailable and condo filled
+      btnRegister.disabled = true;
       updateSyncStatus();
       refreshHistoryList();
     }
