@@ -116,7 +116,6 @@
                 <div id="panelTitle" style="font-weight:700">Registrar visita</div>
                 <div style="display:flex;gap:12px;align-items:center;margin-top:4px">
                   <div id="locationStatus" class="small">Localização: <span class="status-bad">obrigatória</span></div>
-                  <!-- ADDED: accuracyDisplay element (corrige erro JS quando ausente) -->
                   <div id="accuracyDisplay" class="small" aria-live="polite"></div>
                 </div>
               </div>
@@ -131,6 +130,10 @@
               <option value="Assinatura em andamento">Assinatura em andamento</option>
               <option value="Carta não assinada">Carta não assinada</option>
             </select>
+
+            <!-- NOVO: R.A. obrigatório -->
+            <label for="raInput">Qual a R.A?</label>
+            <input id="raInput" type="text" placeholder="Ex: R.A. Centro" autocomplete="off"/>
 
             <label for="obsInput">Observação</label>
             <textarea id="obsInput" placeholder="Descreva brevemente como foi a visita..."></textarea>
@@ -170,10 +173,10 @@
   <div id="nameModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal">
       <h3>Bem-vindo</h3>
-      <div class="row small">Digite seu nome (apenas uma vez por aparelho).</div>
+      <div class="row small">Confirme seu nome (aparece toda vez que você entra).</div>
       <div class="row"><input id="nameInput" type="text" placeholder="Seu nome (ex: João Silva)" /></div>
       <div class="row" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-        <button id="btnNameSave" class="primary">Entrar</button>
+        <button id="btnNameSave" class="primary">Confirmar</button>
       </div>
     </div>
   </div>
@@ -182,6 +185,11 @@
     <div class="modal">
       <h3>Confirmar registro</h3>
       <div class="row small" id="regLocationInfo">Obtendo localização atual...</div>
+
+      <div class="row">
+        <label>Executivo</label>
+        <div id="modalExecutivo" class="small" style="font-weight:700;padding:8px 10px;border-radius:8px;background:#f7f9fc"></div>
+      </div>
 
       <div class="row">
         <label>Nome do condomínio</label>
@@ -195,14 +203,27 @@
           <option value="Carta não assinada">Carta não assinada</option>
         </select>
       </div>
+
+      <!-- NOVO: R.A. no modal -->
+      <div class="row">
+        <label>Qual a R.A?</label>
+        <input id="m_ra" type="text" />
+      </div>
+
       <div class="row">
         <label>Observação</label>
         <textarea id="m_obs"></textarea>
       </div>
 
+      <!-- Confirm executivo antes de enviar -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+        <input type="checkbox" id="confirmExecCheckbox" />
+        <label for="confirmExecCheckbox" class="small">Confirmo que o executivo é: <span id="confirmExecName" style="font-weight:700"></span></label>
+      </div>
+
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
         <button id="btnRegCancel" class="ghost">Cancelar</button>
-        <button id="btnRegConfirm" class="primary">Confirmar (com localização)</button>
+        <button id="btnRegConfirm" class="primary" disabled>Confirmar (com localização)</button>
       </div>
     </div>
   </div>
@@ -233,14 +254,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const condoInput = document.getElementById('condoInput');
   const statusSelect = document.getElementById('statusSelect');
   const obsInput = document.getElementById('obsInput');
+  const raInput = document.getElementById('raInput'); // novo
 
   const registerModal = document.getElementById('registerModal');
   const regLocationInfo = document.getElementById('regLocationInfo');
   const m_condo = document.getElementById('m_condo');
   const m_status = document.getElementById('m_status');
   const m_obs = document.getElementById('m_obs');
+  const m_ra = document.getElementById('m_ra'); // novo
   const btnRegCancel = document.getElementById('btnRegCancel');
   const btnRegConfirm = document.getElementById('btnRegConfirm');
+  const modalExecutivo = document.getElementById('modalExecutivo');
+  const confirmExecCheckbox = document.getElementById('confirmExecCheckbox');
+  const confirmExecName = document.getElementById('confirmExecName');
 
   const btnHistory = document.getElementById('btnHistory');
   const historyModal = document.getElementById('historyModal');
@@ -251,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClearLocal = document.getElementById('btnClearLocal');
   const syncStatus = document.getElementById('syncStatus');
   const locationStatus = document.getElementById('locationStatus');
-  const accuracyDisplay = document.getElementById('accuracyDisplay'); // ADDED: now exists in DOM
+  const accuracyDisplay = document.getElementById('accuracyDisplay');
   const toastEl = document.getElementById('toast');
 
   // map/geo state
@@ -310,8 +336,8 @@ document.addEventListener('DOMContentLoaded', () => {
     locationAvailable = true;
     locationStatus.innerHTML = `Local obtido • ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
     if (accuracyDisplay) accuracyDisplay.textContent = `Precisão: ~${Math.round(acc)} m`;
-    // enable register only when condomínio preenchido e localização disponível
-    btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
+    // enable register only when condomínio e RA preenchidos e localização disponível
+    btnRegister.disabled = !(condoInput.value.trim() && raInput.value.trim() && locationAvailable);
   }
 
   function handleGeoError(err){
@@ -341,8 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function openModal(el){ el.style.display = 'flex'; }
   function closeModal(el){ el.style.display = 'none'; }
 
-  // NAME flow
-  function getUserName(){ return localStorage.getItem(KEY_NAME) || null; }
+  // NAME flow (now asks every time, prefill if exists)
+  function getUserName(){ return localStorage.getItem(KEY_NAME) || ''; }
   function setUserName(n){ localStorage.setItem(KEY_NAME, n); userDisplay.textContent = `Executivo: ${n}`; }
 
   btnNameSave.addEventListener('click', ()=>{
@@ -363,7 +389,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // open modal and check fresh position
     m_condo.value = condoInput.value || '';
     m_obs.value = obsInput.value || '';
+    m_ra.value = raInput.value || '';
     m_status.value = statusSelect.value || 'Carta assinada';
+    // executivo display + require confirm checkbox
+    const exec = getUserName() || '';
+    modalExecutivo.textContent = exec;
+    confirmExecName.textContent = exec;
+    confirmExecCheckbox.checked = false;
+    btnRegConfirm.disabled = true;
+
     regLocationInfo.textContent = 'Obtendo localização atual...';
     openModal(registerModal);
 
@@ -376,11 +410,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // habilita botão do modal apenas quando confirmar checkbox e RA e condominio preenchidos
+  confirmExecCheckbox.addEventListener('change', () => {
+    // require checkbox checked; but on confirm click we will again validate RA/condo/loc
+    btnRegConfirm.disabled = !confirmExecCheckbox.checked;
+  });
+
   btnRegCancel.addEventListener('click', ()=> closeModal(registerModal));
 
   btnRegConfirm.addEventListener('click', async ()=>{
     const cond = m_condo.value.trim();
+    const raVal = m_ra.value.trim();
     if (!cond){ alert('Informe o nome do condomínio.'); m_condo.focus(); return; }
+    if (!raVal){ alert('Informe a R.A.'); m_ra.focus(); return; }
+    if (!confirmExecCheckbox.checked){ alert('Confirme o executivo antes de prosseguir.'); return; }
 
     // get fresh pos required
     let pos;
@@ -400,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
       longitude: pos.coords.longitude,
       accuracy: pos.coords.accuracy || 0,
       status: m_status.value,
+      ra: raVal, // novo campo
       obs: m_obs.value || '',
       device_id: DEVICE_ID
     };
@@ -446,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // history UI (shows "Abrir no Maps" when maps_url available)
+  // history UI (shows RA and "Abrir no Maps" when maps_url available)
   btnHistory.addEventListener('click', ()=> { refreshHistoryList(); openModal(historyModal); });
   btnHistoryClose.addEventListener('click', ()=> closeModal(historyModal));
 
@@ -466,6 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div>
             <div style="font-weight:700">${escapeHtml(p.condominio||'—')}</div>
             <div class="small" style="color:var(--muted)">${new Date(item.created_at).toLocaleString()}</div>
+            <div class="small" style="margin-top:6px">R.A.: <strong>${escapeHtml(p.ra||'—')}</strong></div>
+            <div class="small" style="margin-top:4px">Executivo: <strong>${escapeHtml(p.executivo||'—')}</strong></div>
           </div>
           <div style="text-align:right">
             <div class="small">${latText}, ${lngText}</div>
@@ -537,12 +583,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // helpers
   function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
 
-  // --- NEW: keep the register button in sync with condo input and location availability
-  condoInput.addEventListener('input', () => {
-    btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
-  });
+  // --- keep the register button in sync with condo, RA input and location availability
+  function updateRegisterEnabled(){
+    btnRegister.disabled = !(condoInput.value.trim() && raInput.value.trim() && locationAvailable);
+  }
+  condoInput.addEventListener('input', updateRegisterEnabled);
+  raInput.addEventListener('input', updateRegisterEnabled);
 
-  // --- NEW: visual pressed feedback for touch & mouse (adds/removes .pressed class)
+  // --- visual pressed feedback for touch & mouse (adds/removes .pressed class)
   function applyPressFeedback(el){
     if (!el) return;
     el.addEventListener('touchstart', ()=> el.classList.add('pressed'), {passive:true});
@@ -567,10 +615,10 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshHistoryList();
   }
 
-  // show name modal if needed
-  const uname = getUserName();
-  if (!uname) openModal(nameModal);
-  else { userDisplay.textContent = `Executivo: ${uname}`; startAfterName(); }
+  // show name modal ALWAYS on load (prefill if exists)
+  const storedName = getUserName();
+  nameInput.value = storedName || '';
+  openModal(nameModal);
 
   // Expose for debug
   window.__app = { getHistory: loadHistory, clearHistory: ()=>{ localStorage.removeItem(KEY_HISTORY); }, getName: getUserName };
