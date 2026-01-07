@@ -1,586 +1,536 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Controle de Rotas — Age Fibra (Mobile)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Controle de Rotas — Age Fibra</title>
 
-  <!-- CONFIGURE AQUI (já preenchido com a sua URL/token):
-       APPS_SCRIPT_URL: URL do deploy do seu Google Apps Script (web app)
-       API_TOKEN: token simples para validação no Apps Script
-  -->
-  <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeGIHZYjGKg3bsLpKmljTCJIr-M51SEShlXF6YeRDUjd9R7iXfO8Z4N5VGVWqylOkK/exec';
-    const API_TOKEN = '9deff0c6ff7224487669443fc8f6e4f1fb59a4bd9f18e79a9285902c8288c32f';
-  </script>
+<!-- CONFIG -->
+<script>
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeGIHZYjGKg3bsLpKmljTCJIr-M51SEShlXF6YeRDUjd9R7iXfO8Z4N5VGVWqylOkK/exec';
+  const API_TOKEN = '9deff0c6ff7224487669443fc8f6e4f1fb59a4bd9f18e79a9285902c8288c32f';
+</script>
 
-  <!-- Leaflet (exibe mapa quando houver localização) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet (map) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <style>
-    :root{
-      --accent:#ff7a00; --bg:#fbfbfd; --card:#fff; --muted:#666; --success:#2d9f4a; --danger:#e03e2e;
-      font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial;
-    }
-    html,body{height:100%;margin:0;background:var(--bg);color:#111;-webkit-font-smoothing:antialiased}
-    .app{display:flex;flex-direction:column;min-height:100vh}
-    header{display:flex;align-items:center;gap:12px;padding:12px 14px;background:linear-gradient(90deg,var(--accent),#ffb366);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
-    header h1{font-size:1rem;margin:0}
-    #userDisplay{margin-left:auto;font-weight:600}
-    main{flex:1;display:flex;flex-direction:column;padding:10px;gap:10px}
-    #map{height:44vh;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06);display:none}
-    .panel{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
-    label{display:block;font-size:0.9rem;color:var(--muted);margin-top:8px}
-    input[type=text], input[type=number], textarea, select, button{width:100%;padding:10px;border-radius:10px;border:1px solid #e9e9ef;margin-top:6px;font-size:1rem;box-sizing:border-box;}
-    textarea{resize:vertical;min-height:80px}
-    .controls{display:flex;gap:10px;flex-wrap:wrap}
-    button{cursor:pointer}
-    button.primary{background:var(--accent);color:white;border:0;border-radius:12px;padding:12px 14px}
-    button.block{display:block;width:100%}
-    .small{font-size:0.88rem;color:var(--muted)}
-    .status-ok{color:var(--success);font-weight:700}
-    .status-bad{color:var(--danger);font-weight:700}
-    .modal-backdrop{position:fixed;inset:0;display:none;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;z-index:9999}
-    .modal{background:white;border-radius:12px;padding:16px;width:92%;max-width:520px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
-    .toast{position:fixed;right:14px;bottom:14px;background:#111;color:white;padding:10px 14px;border-radius:12px;opacity:0;transform:translateY(16px);transition:all .25s}
-    .toast.show{opacity:1;transform:translateY(0)}
-    .tiny { padding:6px 8px;border-radius:8px;border:0;cursor:pointer }
-    .tiny.link { background:#e8f0ff;color:#0b57d0;border:1px solid #cce0ff }
-    .tiny.danger { background:#ffecec;color:#b30d0d;border:1px solid #ffcccc }
-    @media(min-width:900px){ main{flex-direction:row;padding:16px} #map{height:70vh;flex:1} .panel{width:420px;flex:0 0 420px} }
-  </style>
+<style>
+  :root{
+    --accent:#ff7a00;
+    --muted:#6b7280;
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --success:#16a34a;
+    --danger:#ef4444;
+    --glass: rgba(255,255,255,0.7);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#f7fafc 0,#eef2ff 100%);color:#0f172a;-webkit-font-smoothing:antialiased}
+  .app{min-height:100vh;display:flex;flex-direction:column}
+  header{
+    display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(90deg,var(--accent),#ffb86b);color:#fff;
+    box-shadow:0 6px 18px rgba(15,23,42,0.08);
+  }
+  header h1{font-size:1rem;margin:0;font-weight:700}
+  #userDisplay{margin-left:auto;font-weight:600;font-size:0.95rem;opacity:0.95}
+
+  main{flex:1;display:flex;flex-direction:column;padding:12px;gap:12px}
+  .columns{display:flex;flex-direction:column;gap:12px}
+  #map{height:44vh;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(2,6,23,0.06);display:none}
+  .panel{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 10px 30px rgba(2,6,23,0.04)}
+  label{display:block;font-size:0.9rem;color:var(--muted);margin-top:10px}
+  input[type=text], textarea, select, button{
+    width:100%;padding:12px;border-radius:10px;border:1px solid #eef2f7;background:transparent;font-size:1rem;
+  }
+  textarea{min-height:92px;resize:vertical}
+  .controls{display:flex;gap:10px;margin-top:12px;flex-direction:column}
+  button.primary{background:linear-gradient(90deg,var(--accent),#ffb366);color:#fff;border:0;box-shadow:0 8px 20px rgba(255,122,0,0.14);border-radius:12px}
+  button.ghost{background:transparent;border:1px solid #e6edf3;border-radius:12px}
+  .small{font-size:0.86rem;color:var(--muted)}
+  .status-ok{color:var(--success);font-weight:700}
+  .status-bad{color:var(--danger);font-weight:700}
+
+  /* history item */
+  .history-item{padding:10px;border-radius:10px;background:linear-gradient(180deg, #fff, #fbfbff);display:flex;flex-direction:column;gap:8px;border:1px solid #f1f5f9}
+  .history-top{display:flex;justify-content:space-between;align-items:center}
+  .history-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;display:none;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:9999;padding:12px}
+  .modal{width:100%;max-width:520px;background:var(--card);border-radius:12px;padding:16px;box-shadow:0 20px 60px rgba(2,6,23,0.25)}
+  .modal h3{margin:0;font-size:1.05rem}
+  .modal .row{margin-top:10px}
+
+  footer{padding:14px;text-align:center;font-size:0.85rem;color:var(--muted);background:transparent}
+
+  /* responsive layout - desktop */
+  @media(min-width:980px){
+    main{padding:22px}
+    .layout{display:flex;gap:16px;align-items:flex-start}
+    #map{flex:1;height:72vh;display:block}
+    .columns{flex:0 0 420px}
+  }
+
+  /* small helpers */
+  .muted-note{font-size:0.82rem;color:var(--muted);margin-top:8px}
+  .icon-sm{width:18px;height:18px;vertical-align:middle;margin-right:8px;opacity:0.9}
+</style>
 </head>
 <body>
   <div class="app" role="application" aria-label="Controle de Rotas">
     <header>
       <h1>Controle de Rotas — Age Fibra</h1>
-      <div id="userDisplay"></div>
+      <div id="userDisplay">Executivo: —</div>
     </header>
 
     <main>
-      <div id="map" aria-label="Mapa"></div>
+      <div class="layout" style="width:100%;max-width:1200px;margin:0 auto">
+        <div id="map" aria-label="Mapa"></div>
 
-      <div class="panel" id="panel">
-        <div id="locationBanner" style="margin-bottom:8px">
-          <div id="locationStatus" class="small">Localização: <strong class="status-bad">obrigatória</strong> — permitida no navegador/telefone?</div>
-          <div id="accuracyDisplay" class="small" style="margin-top:6px"></div>
-        </div>
+        <div class="columns">
+          <div class="panel" aria-labelledby="panelTitle">
+            <div style="display:flex;align-items:center;gap:10px">
+              <!-- small location icon (svg) -->
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#0f172a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div>
+                <div id="panelTitle" style="font-weight:700">Registrar visita</div>
+                <div id="locationStatus" class="small" style="margin-top:4px">Localização: <span class="status-bad">obrigatória</span></div>
+              </div>
+            </div>
 
-        <label for="condoInput">Nome do condomínio</label>
-        <input id="condoInput" type="text" placeholder="Ex: Condomínio Jardim das Flores" />
+            <label for="condoInput">Nome do condomínio</label>
+            <input id="condoInput" type="text" placeholder="Ex: Condomínio Jardim das Flores" autocomplete="off"/>
 
-        <label for="statusSelect">Status da carta</label>
-        <select id="statusSelect" aria-label="Status da carta">
-          <option value="Carta assinada">Carta assinada</option>
-          <option value="Assinatura em andamento">Assinatura em andamento</option>
-          <option value="Carta não assinada">Carta não assinada</option>
-        </select>
+            <label for="statusSelect">Status da carta</label>
+            <select id="statusSelect" aria-label="Status da carta">
+              <option value="Carta assinada">Carta assinada</option>
+              <option value="Assinatura em andamento">Assinatura em andamento</option>
+              <option value="Carta não assinada">Carta não assinada</option>
+            </select>
 
-        <label for="obsInput">Observação (como foi a visita)</label>
-        <textarea id="obsInput" placeholder="Descreva brevemente como foi a visita..."></textarea>
+            <label for="obsInput">Observação</label>
+            <textarea id="obsInput" placeholder="Descreva brevemente como foi a visita..."></textarea>
 
-        <div style="height:10px"></div>
+            <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+              <div style="flex:1">
+                <button id="btnUseLocation" class="ghost" style="width:100%;">Solicitar localização agora</button>
+              </div>
+              <div style="width:140px">
+                <button id="btnRegister" class="primary" disabled>Registrar</button>
+              </div>
+            </div>
 
-        <div class="controls">
-          <button id="btnRegister" class="primary block" disabled>Registrar visita (local obrigatório)</button>
-          <button id="btnUseLocation" class="block">Solicitar localização agora</button>
-          <button id="btnHistory" class="block">Ver histórico</button>
-        </div>
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <button id="btnHistory" class="ghost" style="flex:1">Ver histórico</button>
+              <button id="btnRetryPending" class="ghost" style="flex:1">Reenviar pendentes</button>
+            </div>
 
-        <hr style="margin:12px 0">
+            <div class="muted-note">Permita a localização no navegador/telefone. Sem ela não é possível registrar.</div>
+          </div>
 
-        <div class="small">
-          <strong>Sincronização:</strong> <span id="syncStatus">—</span>
-        </div>
-
-        <div style="margin-top:12px" class="small">
-          <strong>Observações importantes:</strong>
-          <ul>
-            <li>A localização é obrigatória: sem permissão não é possível registrar.</li>
-            <li>Permita a localização no navegador/telefone e clique em "Solicitar localização agora".</li>
-          </ul>
+          <div class="panel" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:700">Sincronização</div>
+            </div>
+            <div style="margin-top:8px" class="small">Status: <span id="syncStatus">—</span></div>
+            <div style="margin-top:12px" class="small">Dica: Se a conexão cair, o app salva localmente e tenta reenviar depois.</div>
+          </div>
         </div>
       </div>
     </main>
 
-    <footer>Feito para Age Fibra — v1.3 (Localização obrigatória)</footer>
+    <footer>&copy; <span id="year"></span> — feito por João Vieira</footer>
   </div>
 
-  <!-- Name modal -->
+  <!-- Modals -->
   <div id="nameModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal">
       <h3>Bem-vindo</h3>
-      <p class="small">Digite seu nome (apenas uma vez por navegador/celular).</p>
-      <input id="nameInput" type="text" placeholder="Seu nome (ex: João Silva)" />
-      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <div class="row small">Digite seu nome (apenas uma vez por aparelho).</div>
+      <div class="row"><input id="nameInput" type="text" placeholder="Seu nome (ex: João Silva)" /></div>
+      <div class="row" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
         <button id="btnNameSave" class="primary">Entrar</button>
       </div>
     </div>
   </div>
 
-  <!-- Register modal (shows fresh position; confirm required) -->
   <div id="registerModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3>Confirmar Registro</h3>
-      <p class="small" id="regLocationInfo">Obtendo localização atual...</p>
+      <h3>Confirmar registro</h3>
+      <div class="row small" id="regLocationInfo">Obtendo localização atual...</div>
 
-      <label>Nome do condomínio</label>
-      <input id="m_condo" type="text" />
-
-      <label>Status</label>
-      <select id="m_status">
-        <option value="Carta assinada">Carta assinada</option>
-        <option value="Assinatura em andamento">Assinatura em andamento</option>
-        <option value="Carta não assinada">Carta não assinada</option>
-      </select>
-
-      <label>Observação</label>
-      <textarea id="m_obs"></textarea>
+      <div class="row">
+        <label>Nome do condomínio</label>
+        <input id="m_condo" type="text" />
+      </div>
+      <div class="row">
+        <label>Status</label>
+        <select id="m_status">
+          <option value="Carta assinada">Carta assinada</option>
+          <option value="Assinatura em andamento">Assinatura em andamento</option>
+          <option value="Carta não assinada">Carta não assinada</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Observação</label>
+        <textarea id="m_obs"></textarea>
+      </div>
 
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-        <button id="btnRegCancel">Cancelar</button>
+        <button id="btnRegCancel" class="ghost">Cancelar</button>
         <button id="btnRegConfirm" class="primary">Confirmar (com localização)</button>
       </div>
     </div>
   </div>
 
-  <!-- History modal -->
   <div id="historyModal" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal" style="max-height:80vh;overflow:auto">
       <h3>Histórico local</h3>
-      <div id="historyList"></div>
+      <div id="historyList" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:12px">
         <button id="btnHistoryClose" class="primary">Fechar</button>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <div id="toast" style="position:fixed;right:16px;bottom:16px;background:#0f172a;color:#fff;padding:10px 14px;border-radius:12px;opacity:0;transform:translateY(10px);transition:all .25s"></div>
 
-  <script>
-    /* ---------- Config / Utils ---------- */
-    if (typeof APPS_SCRIPT_URL === 'undefined' || typeof API_TOKEN === 'undefined') {
-      console.warn('APPS_SCRIPT_URL/API_TOKEN devem ser definidos no topo do arquivo.');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // DOM elements
+  const yearEl = document.getElementById('year'); yearEl.textContent = new Date().getFullYear();
+  const nameModal = document.getElementById('nameModal');
+  const btnNameSave = document.getElementById('btnNameSave');
+  const nameInput = document.getElementById('nameInput');
+  const userDisplay = document.getElementById('userDisplay');
+
+  const btnUseLocation = document.getElementById('btnUseLocation');
+  const btnRegister = document.getElementById('btnRegister');
+  const condoInput = document.getElementById('condoInput');
+  const statusSelect = document.getElementById('statusSelect');
+  const obsInput = document.getElementById('obsInput');
+
+  const registerModal = document.getElementById('registerModal');
+  const regLocationInfo = document.getElementById('regLocationInfo');
+  const m_condo = document.getElementById('m_condo');
+  const m_status = document.getElementById('m_status');
+  const m_obs = document.getElementById('m_obs');
+  const btnRegCancel = document.getElementById('btnRegCancel');
+  const btnRegConfirm = document.getElementById('btnRegConfirm');
+
+  const btnHistory = document.getElementById('btnHistory');
+  const historyModal = document.getElementById('historyModal');
+  const historyList = document.getElementById('historyList');
+  const btnHistoryClose = document.getElementById('btnHistoryClose');
+
+  const btnRetryPending = document.getElementById('btnRetryPending');
+  const btnClearLocal = document.getElementById('btnClearLocal');
+  const syncStatus = document.getElementById('syncStatus');
+  const locationStatus = document.getElementById('locationStatus');
+  const accuracyDisplay = document.getElementById('accuracyDisplay');
+  const toastEl = document.getElementById('toast');
+
+  // map/geo state
+  let map, userMarker, accuracyCircle;
+  let watchId = null;
+  let lastKnownPos = null;
+  let locationAvailable = false;
+
+  // localstorage keys
+  const KEY_NAME = 'executiveName_v1';
+  const KEY_HISTORY = 'visitHistory_v1';
+  const KEY_DEVICE = 'deviceId_v1';
+
+  // device id
+  function uuidv4(){ return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c/4).toString(16)); }
+  function getOrCreateDeviceId(){ let id = localStorage.getItem(KEY_DEVICE); if(!id){ id = uuidv4(); localStorage.setItem(KEY_DEVICE,id);} return id; }
+  const DEVICE_ID = getOrCreateDeviceId();
+
+  // toast
+  function showToast(msg, time=3000){ toastEl.textContent = msg; toastEl.style.opacity = '1'; toastEl.style.transform = 'translateY(0)'; setTimeout(()=>{ toastEl.style.opacity='0'; toastEl.style.transform='translateY(10px)'; }, time); }
+
+  // history helpers
+  function loadHistory(){ try { return JSON.parse(localStorage.getItem(KEY_HISTORY) || '[]'); } catch(e){ return []; } }
+  function saveHistory(h){ localStorage.setItem(KEY_HISTORY, JSON.stringify(h)); updateSyncStatus(); }
+  function addHistoryEntry(entry){ const h = loadHistory(); h.unshift(entry); saveHistory(h); }
+
+  function updateSyncStatus(){
+    const h = loadHistory();
+    const pending = h.filter(x => !x.sent).length;
+    syncStatus.textContent = pending === 0 ? 'Tudo sincronizado' : `${pending} pendente(s)`;
+    syncStatus.style.color = pending === 0 ? 'var(--success)' : 'var(--danger)';
+  }
+
+  // map init
+  function initMap(){
+    if (map) return;
+    map = L.map('map', {zoomControl:false, tap:true}).setView([-15.8,-47.9], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
+    userMarker = L.circleMarker([0,0], {radius:10, weight:2}).setStyle({fillColor: '#ff7a00', color:'#fff'});
+    accuracyCircle = L.circle([0,0], {radius:0, color:'#ffbb88', fillOpacity:0.08});
+    document.getElementById('map').style.display = 'block';
+  }
+
+  // geolocation updates
+  function updatePosition(pos){
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const acc = pos.coords.accuracy || 0;
+    lastKnownPos = {latitude:lat, longitude:lon, accuracy:acc, timestamp: Date.now()};
+    initMap();
+    if (!map.hasLayer(userMarker)) userMarker.addTo(map);
+    if (!map.hasLayer(accuracyCircle)) accuracyCircle.addTo(map);
+    userMarker.setLatLng([lat,lon]);
+    accuracyCircle.setLatLng([lat,lon]).setRadius(acc);
+    map.setView([lat,lon], 17, {animate:true});
+    locationAvailable = true;
+    locationStatus.innerHTML = `Local obtido • ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    accuracyDisplay.textContent = `Precisão: ~${Math.round(acc)} m`;
+    btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
+  }
+
+  function handleGeoError(err){
+    console.warn('geo error', err);
+    locationAvailable = false;
+    lastKnownPos = null;
+    locationStatus.innerHTML = `<span class="status-bad">Localização indisponível</span> — verifique permissões e tente novamente.`;
+    accuracyDisplay.textContent = '';
+    btnRegister.disabled = true;
+  }
+
+  function startWatchPosition(){
+    if (!('geolocation' in navigator)) { handleGeoError({message:'Geolocation não suportado'}); return; }
+    navigator.geolocation.getCurrentPosition((p)=> updatePosition(p),(e)=> handleGeoError(e),{enableHighAccuracy:true,timeout:10000});
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition((p)=> updatePosition(p),(e)=>{/* ignore further errors */},{enableHighAccuracy:true,maximumAge:3000,timeout:10000});
+  }
+
+  function getCurrentPositionPromise(opts){
+    return new Promise((resolve,reject)=>{
+      if (!('geolocation' in navigator)) return reject(new Error('Geolocation não suportado'));
+      navigator.geolocation.getCurrentPosition(resolve,reject,opts);
+    });
+  }
+
+  // UI: open/close modals
+  function openModal(el){ el.style.display = 'flex'; }
+  function closeModal(el){ el.style.display = 'none'; }
+
+  // NAME flow
+  function getUserName(){ return localStorage.getItem(KEY_NAME) || null; }
+  function setUserName(n){ localStorage.setItem(KEY_NAME, n); userDisplay.textContent = `Executivo: ${n}`; }
+
+  btnNameSave.addEventListener('click', ()=>{
+    const v = nameInput.value.trim();
+    if (!v) { alert('Digite seu nome.'); nameInput.focus(); return; }
+    setUserName(v); closeModal(nameModal); startAfterName();
+  });
+
+  // register flow (requires fresh location)
+  btnUseLocation.addEventListener('click', ()=>{
+    locationStatus.textContent = 'Solicitando posição...';
+    getCurrentPositionPromise({enableHighAccuracy:true,timeout:10000})
+      .then(p => { updatePosition(p); showToast('Localização obtida'); })
+      .catch(e => { handleGeoError(e); alert('Não foi possível obter localização.'); });
+  });
+
+  btnRegister.addEventListener('click', async ()=>{
+    // open modal and check fresh position
+    m_condo.value = condoInput.value || '';
+    m_obs.value = obsInput.value || '';
+    m_status.value = statusSelect.value || 'Carta assinada';
+    regLocationInfo.textContent = 'Obtendo localização atual...';
+    openModal(registerModal);
+
+    try {
+      const pos = await getCurrentPositionPromise({enableHighAccuracy:true,timeout:8000});
+      regLocationInfo.textContent = `Lat ${pos.coords.latitude.toFixed(6)} • Lng ${pos.coords.longitude.toFixed(6)} • precisão ~${Math.round(pos.coords.accuracy)} m`;
+    } catch (err) {
+      regLocationInfo.textContent = 'Não foi possível obter posição. Permita localização e tente novamente.';
+      showToast('Localização obrigatória — verifique permissões.',4000);
+    }
+  });
+
+  btnRegCancel.addEventListener('click', ()=> closeModal(registerModal));
+
+  btnRegConfirm.addEventListener('click', async ()=>{
+    const cond = m_condo.value.trim();
+    if (!cond){ alert('Informe o nome do condomínio.'); m_condo.focus(); return; }
+
+    // get fresh pos required
+    let pos;
+    try {
+      pos = await getCurrentPositionPromise({enableHighAccuracy:true,timeout:8000});
+    } catch (err) {
+      showToast('Registro cancelado — não foi possível obter localização atual.',4000);
+      closeModal(registerModal);
+      return;
     }
 
-    const KEY_NAME = 'executiveName_v1';
-    const KEY_HISTORY = 'visitHistory_v1';
-    const KEY_DEVICE = 'deviceId_v1';
+    const payload = {
+      timestamp: new Date().toISOString(),
+      executivo: getUserName(),
+      condominio: cond,
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy || 0,
+      status: m_status.value,
+      obs: m_obs.value || '',
+      device_id: DEVICE_ID
+    };
 
-    function uuidv4(){ return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
-    function getOrCreateDeviceId(){ let id = localStorage.getItem(KEY_DEVICE); if (!id) { id = uuidv4(); localStorage.setItem(KEY_DEVICE, id); } return id; }
-    const DEVICE_ID = getOrCreateDeviceId();
+    const entry = { id: uuidv4(), payload, sent:false, created_at: new Date().toISOString() };
+    addHistoryEntry(entry);
+    closeModal(registerModal);
+    showToast('Registro salvo localmente. Enviando...');
 
-    function showToast(msg, time=3200){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), time); }
-
-    /* ---------- Elements ---------- */
-    const nameModal = document.getElementById('nameModal');
-    const nameInput = document.getElementById('nameInput');
-    const btnNameSave = document.getElementById('btnNameSave');
-    const userDisplay = document.getElementById('userDisplay');
-
-    const btnRegister = document.getElementById('btnRegister');
-    const btnUseLocation = document.getElementById('btnUseLocation');
-    const btnHistory = document.getElementById('btnHistory');
-
-    const condoInput = document.getElementById('condoInput');
-    const statusSelect = document.getElementById('statusSelect');
-    const obsInput = document.getElementById('obsInput');
-
-    const locationStatus = document.getElementById('locationStatus');
-    const accuracyDisplay = document.getElementById('accuracyDisplay');
-    const syncStatus = document.getElementById('syncStatus');
-
-    const registerModal = document.getElementById('registerModal');
-    const regLocationInfo = document.getElementById('regLocationInfo');
-    const m_condo = document.getElementById('m_condo');
-    const m_obs = document.getElementById('m_obs');
-    const m_status = document.getElementById('m_status');
-    const btnRegCancel = document.getElementById('btnRegCancel');
-    const btnRegConfirm = document.getElementById('btnRegConfirm');
-
-    const historyModal = document.getElementById('historyModal');
-    const historyList = document.getElementById('historyList');
-    const btnHistoryClose = document.getElementById('btnHistoryClose');
-
-    const toastEl = document.getElementById('toast');
-
-    // Map & location
-    let map, userMarker, accuracyCircle;
-    let lastKnownPos = null; // {latitude,longitude,accuracy,timestamp}
-    let watchId = null;
-    let locationAvailable = false; // MUST be true to allow register
-
-    /* ---------- History helpers ---------- */
-    function loadHistory(){ return JSON.parse(localStorage.getItem(KEY_HISTORY) || '[]'); }
-    function saveHistory(h){ localStorage.setItem(KEY_HISTORY, JSON.stringify(h)); updateSyncStatus(); }
-    function addHistoryEntry(entry){ const h = loadHistory(); h.unshift(entry); saveHistory(h); }
-
-    function updateSyncStatus(){
-      const h = loadHistory();
-      const total = h.length;
-      const pending = h.filter(x=>!x.sent).length;
-      syncStatus.textContent = pending === 0 ? 'Tudo sincronizado' : `${pending} pendente(s) / ${total} total`;
-      syncStatus.style.color = pending === 0 ? 'var(--success)' : 'var(--danger)';
-    }
-
-    /* ---------- Map & Geolocation (mandatory) ---------- */
-    function initMap(){
-      map = L.map('map', {zoomControl:false, tap:true}).setView([-15.793889, -47.882778], 4);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-      userMarker = L.circleMarker([0,0], {radius:10, weight:2, opacity:0.95}).setStyle({fillColor: '#ff7a00', color:'#fff'});
-      accuracyCircle = L.circle([0,0], {radius:0, color:'#ffbb88', fillOpacity:0.08});
-      document.getElementById('map').style.display = 'block';
-    }
-
-    function setLocationUnavailable(msg){
-      locationAvailable = false;
-      locationStatus.innerHTML = `<span class="status-bad">Localização indisponível</span> — ${msg}`;
-      accuracyDisplay.textContent = '';
-      btnRegister.disabled = true;
-    }
-
-    function updatePosition(pos){
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      const acc = pos.coords.accuracy || 0;
-      lastKnownPos = {latitude:lat, longitude:lon, accuracy:acc, timestamp: Date.now()};
-
-      if (!map) initMap();
-      if (!map.hasLayer(userMarker)) userMarker.addTo(map);
-      if (!map.hasLayer(accuracyCircle)) accuracyCircle.addTo(map);
-      userMarker.setLatLng([lat,lon]);
-      accuracyCircle.setLatLng([lat,lon]).setRadius(acc);
-
-      map.setView([lat,lon], 17, {animate:true});
-
-      locationAvailable = true;
-      locationStatus.innerHTML = `<span class="status-ok">Local obtido</span> • ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-      accuracyDisplay.textContent = `Precisão: ~${Math.round(acc)} m`;
-      btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
-    }
-
-    function handleGeoError(err){
-      console.warn('Geolocation error', err);
-      if (err && err.code === 1) {
-        setLocationUnavailable('Permissão negada. Ative a localização no navegador/telefone.');
-      } else if (err && err.code === 2) {
-        setLocationUnavailable('Posição indisponível. Mova-se para área externa ou verifique o sinal.');
-      } else if (err && err.code === 3) {
-        setLocationUnavailable('Timeout ao obter localização. Tente novamente.');
+    try {
+      const res = await sendToServer(payload);
+      if (res && res.ok) {
+        // update history item with maps_url if returned
+        const maps = (res.response && res.response.maps_url) || (res.maps_url) || null;
+        const h = loadHistory(); const idx = h.findIndex(x=>x.id===entry.id);
+        if (idx>=0){ h[idx].sent = true; if (maps) h[idx].payload.maps_url = maps; h[idx].serverResponse = res.response || res; saveHistory(h); }
+        showToast('Registro enviado com sucesso');
       } else {
-        setLocationUnavailable('Erro ao obter localização.');
+        showToast('Falha ao enviar — ficará pendente.',4000);
       }
+    } catch (err) {
+      console.error(err); showToast('Erro de rede. Ficará pendente.',4000);
     }
+    refreshHistoryList();
+  });
 
-    function startWatchPosition(){
-      if (!('geolocation' in navigator)) {
-        setLocationUnavailable('Geolocation não suportado neste dispositivo.');
-        return;
-      }
-      navigator.geolocation.getCurrentPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, timeout:10000});
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition((p)=> updatePosition(p), (e)=> handleGeoError(e), {enableHighAccuracy:true, maximumAge:3000, timeout:10000});
-    }
-
-    function getCurrentPositionPromise(opts){
-      return new Promise((resolve, reject)=>{
-        if (!('geolocation' in navigator)) return reject(new Error('Geolocation não suportado'));
-        navigator.geolocation.getCurrentPosition(resolve, reject, opts);
-      });
-    }
-
-    /* ---------- Register flow (require fresh location) ---------- */
-    btnRegister.addEventListener('click', openRegisterModal);
-
-    async function openRegisterModal(){
-      m_condo.value = condoInput.value || '';
-      m_obs.value = obsInput.value || '';
-      m_status.value = statusSelect.value || 'Carta assinada';
-      regLocationInfo.textContent = 'Obtendo localização atual...';
-      registerModal.style.display = 'flex';
-
-      try {
-        const pos = await getCurrentPositionPromise({enableHighAccuracy:true, timeout:8000});
-        regLocationInfo.textContent = `Lat ${pos.coords.latitude.toFixed(6)} • Lng ${pos.coords.longitude.toFixed(6)} • precisão ~${Math.round(pos.coords.accuracy)} m`;
-      } catch (err) {
-        regLocationInfo.textContent = 'Não foi possível obter posição. Permita localização e tente novamente.';
-        showToast('Localização obrigatória — verifique permissões.', 4000);
-      }
-    }
-
-    btnRegCancel.addEventListener('click', ()=> registerModal.style.display = 'none');
-
-    btnRegConfirm.addEventListener('click', async ()=>{
-      const cond = m_condo.value.trim();
-      if (!cond) { alert('Informe o nome do condomínio.'); m_condo.focus(); return; }
-
-      let pos;
-      try {
-        pos = await getCurrentPositionPromise({enableHighAccuracy:true, timeout:8000});
-      } catch (err) {
-        showToast('Registro cancelado — não foi possível obter localização atual (obrigatória).', 4500);
-        registerModal.style.display = 'none';
-        return;
-      }
-
-      const payload = {
-        timestamp: new Date().toISOString(),
-        executivo: getUserName(),
-        condominio: cond,
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-        accuracy: pos.coords.accuracy || 0,
-        status: m_status.value,
-        obs: m_obs.value || '',
-        device_id: DEVICE_ID
-      };
-
-      const entry = { id: uuidv4(), payload, sent:false, created_at: new Date().toISOString() };
-      addHistoryEntry(entry);
-      registerModal.style.display = 'none';
-      showToast('Registro salvo localmente. Enviando...');
-
-      try {
-        const res = await sendToServer(payload);
-        // res: { ok:true, response: {...} } or { ok:false, ... }
-        if (res && res.ok && res.response) {
-          // update entry with maps_url if returned
-          const maps = res.response.maps_url || (res.response && res.response.maps_url) || null;
-          const h = loadHistory();
-          const idx = h.findIndex(x => x.id === entry.id);
-          if (idx >= 0) {
-            h[idx].sent = true;
-            if (maps) {
-              h[idx].payload.maps_url = maps;
-            }
-            h[idx].serverResponse = res.response;
-            saveHistory(h);
-          }
-          showToast('Registro enviado com sucesso');
-        } else if (res && res.ok && !res.response) {
-          // older servers might return raw ok
-          const h = loadHistory();
-          const idx = h.findIndex(x => x.id === entry.id);
-          if (idx >= 0) { h[idx].sent = true; h[idx].serverResponse = res; saveHistory(h); }
-          showToast('Registro enviado (resposta não JSON)');
-        } else {
-          console.warn('sendToServer returned not ok:', res);
-          showToast('Falha ao enviar. Ficará pendente.', 4000);
-        }
-      } catch (err) {
-        console.error('send error', err);
-        showToast('Erro de rede. Ficará pendente.', 4000);
-      }
-      refreshHistoryList();
+  // send to Apps Script via FormData (no headers — avoids preflight/CORS)
+  async function sendToServer(payload){
+    if (!APPS_SCRIPT_URL) return { ok:false, message:'no_url' };
+    const form = new FormData();
+    form.append('token', API_TOKEN);
+    Object.keys(payload).forEach(k => {
+      if (payload[k] !== undefined && payload[k] !== null) form.append(k, String(payload[k]));
     });
-
-    /* ---------- Send to Apps Script using FormData (avoids preflight/CORS) ---------- */
-    async function sendToServer(payload){
-      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('SEU_DEPLOY_ID')) {
-        console.warn('APPS_SCRIPT_URL não configurado — simulando envio (sem POST).');
-        return {ok:true, simulated:true};
-      }
-
-      const form = new FormData();
-      form.append('token', API_TOKEN);
-      Object.keys(payload).forEach(k => {
-        if (payload[k] !== undefined && payload[k] !== null) form.append(k, String(payload[k]));
-      });
-
-      try {
-        const r = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form });
-        const text = await r.text().catch(()=>'');
-
-        let json = null;
-        try { json = text ? JSON.parse(text) : null; } catch (e) { /* not JSON */ }
-
-        if (!r.ok) {
-          console.warn('HTTP error from Apps Script', r.status, text);
-          return { ok:false, httpStatus: r.status, text, response: json };
-        }
-
-        return { ok:true, response: json || text };
-      } catch (err) {
-        console.error('Network error sending to Apps Script:', err);
-        return { ok:false, networkError:true, message: err && err.message ? err.message : String(err) };
-      }
+    try {
+      const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body: form });
+      const text = await r.text().catch(()=>'');
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch(e){ /* not json */ }
+      if (!r.ok) return { ok:false, httpStatus: r.status, text, response: json };
+      return { ok:true, response: json || text, maps_url: (json && json.maps_url) || null };
+    } catch (err) {
+      console.error('send error', err); return { ok:false, networkError:true, message: err && err.message ? err.message : String(err) };
     }
+  }
 
-    /* ---------- History UI (updated to show maps link) ---------- */
-    document.getElementById('btnHistory').addEventListener('click', ()=> {
-      refreshHistoryList();
-      historyModal.style.display = 'flex';
-    });
-    btnHistoryClose.addEventListener('click', ()=> historyModal.style.display = 'none');
+  // history UI (shows "Abrir no Maps" when maps_url available)
+  btnHistory.addEventListener('click', ()=> { refreshHistoryList(); openModal(historyModal); });
+  btnHistoryClose.addEventListener('click', ()=> closeModal(historyModal));
 
-    function refreshHistoryList(){
-      const h = loadHistory();
-      historyList.innerHTML = '';
-      if (!h || h.length === 0) {
-        historyList.innerHTML = '<div class="small">Nenhum registro local.</div>';
-        updateSyncStatus();
-        return;
-      }
-      for (const item of h) {
-        const p = item.payload || {};
-        const el = document.createElement('div');
-        el.style.padding = '10px';
-        el.style.borderBottom = '1px solid #f1f1f3';
+  function refreshHistoryList(){
+    const h = loadHistory();
+    historyList.innerHTML = '';
+    if (!h || h.length===0){ historyList.innerHTML = '<div class="small">Nenhum registro local.</div>'; updateSyncStatus(); return; }
+    for (const item of h){
+      const p = item.payload || {};
+      const wrapper = document.createElement('div'); wrapper.className = 'history-item';
+      const latText = (p.latitude !== undefined && p.latitude !== null && Number.isFinite(Number(p.latitude))) ? Number(p.latitude).toFixed(6) : '—';
+      const lngText = (p.longitude !== undefined && p.longitude !== null && Number.isFinite(Number(p.longitude))) ? Number(p.longitude).toFixed(6) : '—';
+      const mapsUrl = p.maps_url || (item.serverResponse && item.serverResponse.maps_url) || null;
 
-        const latText = (p.latitude !== undefined && p.latitude !== null && Number.isFinite(Number(p.latitude))) ? Number(p.latitude).toFixed(6) : '—';
-        const lngText = (p.longitude !== undefined && p.longitude !== null && Number.isFinite(Number(p.longitude))) ? Number(p.longitude).toFixed(6) : '—';
-
-        // maps link present?
-        const mapsUrl = p.maps_url || (item.serverResponse && item.serverResponse.maps_url) || (item.serverResponse && item.serverResponse.response && item.serverResponse.response.maps_url) || null;
-
-        el.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><strong>${escapeHtml(p.condominio || '')}</strong><div class="small">${new Date(item.created_at).toLocaleString()}</div></div>
-            <div style="text-align:right">
-              <div class="small">${latText}, ${lngText}</div>
-              <div style="margin-top:6px"><span style="font-weight:700;color:${item.sent ? 'var(--success)' : 'var(--danger)'}">${item.sent ? 'Enviado' : 'Pendente'}</span></div>
-            </div>
+      wrapper.innerHTML = `
+        <div class="history-top">
+          <div>
+            <div style="font-weight:700">${escapeHtml(p.condominio||'—')}</div>
+            <div class="small" style="color:var(--muted)">${new Date(item.created_at).toLocaleString()}</div>
           </div>
-          <div style="margin-top:8px" class="small">${escapeHtml(p.obs || '')}</div>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button class="tiny link">${mapsUrl ? 'Abrir no Maps' : 'Sem link'}</button>
-            <button class="tiny">Reenviar</button>
-            <button class="tiny danger">Apagar</button>
+          <div style="text-align:right">
+            <div class="small">${latText}, ${lngText}</div>
+            <div style="margin-top:6px"><span style="font-weight:700;color:${item.sent ? 'var(--success)' : 'var(--danger)'}">${item.sent ? 'Enviado' : 'Pendente'}</span></div>
           </div>
-        `;
+        </div>
+        <div class="small">${escapeHtml(p.obs||'')}</div>
+        <div class="history-actions">
+          <button class="tiny open-maps" ${mapsUrl? '' : 'disabled'} style="padding:6px 8px;border-radius:8px;background:#e8f0ff;color:#0b57d0;border:1px solid #cce0ff">${mapsUrl? 'Abrir no Maps':'Sem link'}</button>
+          <button class="tiny retry" style="padding:6px 8px;border-radius:8px;background:#f1f5f9;color:#0b1724;border:1px solid #e6eef5">Reenviar</button>
+          <button class="tiny delete" style="padding:6px 8px;border-radius:8px;background:#fff2f2;color:#b30d0d;border:1px solid #ffd5d5">Apagar</button>
+        </div>
+      `;
+      // events
+      const btnOpen = wrapper.querySelector('.open-maps');
+      if (mapsUrl) btnOpen.addEventListener('click', ()=> window.open(mapsUrl,'_blank','noopener'));
+      else { btnOpen.disabled = true; btnOpen.style.opacity = '0.6'; }
 
-        // maps button
-        const btnMaps = el.querySelector('.tiny.link');
-        if (mapsUrl) {
-          btnMaps.addEventListener('click', ()=> {
-            window.open(mapsUrl, '_blank', 'noopener');
-          });
-        } else {
-          btnMaps.disabled = true;
-          btnMaps.style.opacity = '0.6';
-          btnMaps.style.cursor = 'not-allowed';
-        }
-
-        // reenviar
-        const btnRetry = el.querySelectorAll('.tiny')[1];
-        btnRetry.disabled = item.sent;
-        btnRetry.addEventListener('click', async ()=>{
-          try {
-            const r = await sendToServer(item.payload);
-            if (r && r.ok) {
-              // update maps_url if provided
-              const returned = r.response || null;
-              const mapsReturned = returned && returned.maps_url ? returned.maps_url : null;
-              const hist = loadHistory();
-              const idx = hist.findIndex(x => x.id === item.id);
-              if (idx >= 0) {
-                hist[idx].sent = true;
-                if (mapsReturned) hist[idx].payload.maps_url = mapsReturned;
-                hist[idx].serverResponse = returned;
-                saveHistory(hist);
-              }
-              refreshHistoryList();
-              showToast('Reenvio OK');
-            } else showToast('Falha ao reenviar');
-          } catch (err) { showToast('Erro de rede'); }
-        });
-
-        // apagar
-        const btnDel = el.querySelectorAll('.tiny')[2];
-        btnDel.addEventListener('click', ()=>{
-          if (!confirm('Excluir registro local?')) return;
-          const arr = loadHistory().filter(x => x.id !== item.id);
-          saveHistory(arr);
-          refreshHistoryList();
-        });
-
-        historyList.appendChild(el);
-      }
-      updateSyncStatus();
-    }
-
-    document.getElementById('btnRetryPending').addEventListener('click', async ()=>{
-      const h = loadHistory();
-      const pend = h.filter(x=>!x.sent);
-      if (pend.length === 0) { showToast('Nenhum pendente'); return; }
-      showToast('Reenviando pendentes...');
-      for (const entry of pend) {
+      const btnRetry = wrapper.querySelector('.retry');
+      btnRetry.disabled = item.sent;
+      btnRetry.addEventListener('click', async ()=>{
         try {
-          const r = await sendToServer(entry.payload);
+          const r = await sendToServer(item.payload);
           if (r && r.ok) {
-            const returned = r.response || null;
-            const mapsReturned = returned && returned.maps_url ? returned.maps_url : null;
-            entry.sent = true;
-            if (mapsReturned) entry.payload.maps_url = mapsReturned;
-            entry.serverResponse = returned;
-          }
-        } catch (err) { console.warn(err); }
-      }
-      saveHistory(h);
-      refreshHistoryList();
-    });
-
-    document.getElementById('btnClearLocal').addEventListener('click', ()=>{
-      if (!confirm('Limpar todos os registros locais?')) return;
-      localStorage.removeItem(KEY_HISTORY);
-      refreshHistoryList();
-      showToast('Histórico local limpo');
-    });
-
-    /* ---------- Name modal flow ---------- */
-    function getUserName(){ return localStorage.getItem(KEY_NAME) || null; }
-    function setUserName(n){ localStorage.setItem(KEY_NAME, n); userDisplay.textContent = `Executivo: ${n}`; nameModal.style.display = 'none'; }
-    btnNameSave.addEventListener('click', ()=>{
-      const v = nameInput.value.trim();
-      if (!v) { alert('Digite seu nome.'); nameInput.focus(); return; }
-      setUserName(v);
-      startAfterName();
-    });
-
-    document.getElementById('btnUseLocation').addEventListener('click', ()=>{
-      locationStatus.textContent = 'Solicitando posição...';
-      getCurrentPositionPromise({enableHighAccuracy:true, timeout:10000})
-        .then(p => { updatePosition(p); showToast('Localização obtida'); })
-        .catch(e => { handleGeoError(e); alert('Não foi possível obter localização.'); });
-    });
-
-    /* ---------- Initial boot ---------- */
-    window.addEventListener('load', ()=>{
-      const uname = getUserName();
-      if (!uname) {
-        nameModal.style.display = 'flex';
-      } else {
-        userDisplay.textContent = `Executivo: ${uname}`;
-        startAfterName();
-      }
-
-      condoInput.addEventListener('input', ()=> {
-        btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
+            const json = r.response || null;
+            const mapsReturned = (json && json.maps_url) || r.maps_url || null;
+            const hist = loadHistory(); const idx = hist.findIndex(x=>x.id===item.id);
+            if (idx>=0){ hist[idx].sent = true; if (mapsReturned) hist[idx].payload.maps_url = mapsReturned; hist[idx].serverResponse = json || r; saveHistory(hist); }
+            refreshHistoryList(); showToast('Reenvio OK');
+          } else showToast('Falha ao reenviar');
+        } catch (err){ console.error(err); showToast('Erro de rede'); }
       });
 
-      // modal backdrop close handlers
-      nameModal.addEventListener('click', (e)=>{ if (e.target === nameModal) nameModal.style.display='flex'; });
-      registerModal.addEventListener('click', (e)=>{ if (e.target === registerModal) registerModal.style.display='none'; });
-      historyModal.addEventListener('click', (e)=>{ if (e.target === historyModal) historyModal.style.display='none'; });
+      const btnDel = wrapper.querySelector('.delete');
+      btnDel.addEventListener('click', ()=>{
+        if (!confirm('Excluir registro local?')) return;
+        const arr = loadHistory().filter(x=>x.id!==item.id);
+        saveHistory(arr); refreshHistoryList();
+      });
 
-      btnRegCancel.addEventListener('click', ()=> registerModal.style.display='none');
-    });
-
-    function startAfterName(){
-      startWatchPosition();
-      btnRegister.disabled = true;
-      updateSyncStatus();
-      refreshHistoryList();
+      historyList.appendChild(wrapper);
     }
+    updateSyncStatus();
+  }
 
-    /* ---------- Helpers ---------- */
-    function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+  // quick retry pendentes
+  btnRetryPending && btnRetryPending.addEventListener && btnRetryPending.addEventListener('click', async ()=>{
+    const h = loadHistory(); const pend = h.filter(x=>!x.sent);
+    if (pend.length===0){ showToast('Nenhum pendente'); return; }
+    showToast('Reenviando pendentes...');
+    for (const entry of pend){
+      try {
+        const r = await sendToServer(entry.payload);
+        if (r && r.ok) {
+          const json = r.response || null; const mapsReturned = (json && json.maps_url) || r.maps_url || null;
+          entry.sent = true; if (mapsReturned) entry.payload.maps_url = mapsReturned; entry.serverResponse = json || r;
+        }
+      } catch (err){ console.warn(err); }
+    }
+    saveHistory(h); refreshHistoryList();
+  });
 
-    // debug helpers
-    window.__app = { getHistory: loadHistory, clearHistory: ()=>{ localStorage.removeItem(KEY_HISTORY); }, getName: getUserName };
+  // clear local
+  btnClearLocal && btnClearLocal.addEventListener && btnClearLocal.addEventListener('click', ()=>{
+    if (!confirm('Limpar todos os registros locais?')) return;
+    localStorage.removeItem(KEY_HISTORY); refreshHistoryList(); showToast('Histórico local limpo');
+  });
 
-  </script>
+  // helpers
+  function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+  // initial boot
+  function startAfterName(){
+    startWatchPosition();
+    btnRegister.disabled = true;
+    updateSyncStatus();
+    refreshHistoryList();
+  }
+
+  // show name modal if needed
+  const uname = getUserName();
+  if (!uname) openModal(nameModal);
+  else { userDisplay.textContent = `Executivo: ${uname}`; startAfterName(); }
+
+  // Expose for debug
+  window.__app = { getHistory: loadHistory, clearHistory: ()=>{ localStorage.removeItem(KEY_HISTORY); }, getName: getUserName };
+
+});
+</script>
 </body>
 </html>
