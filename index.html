@@ -10,11 +10,13 @@
        API_TOKEN: token simples para validação no Apps Script
   -->
   <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7xwMeNdWzpoE_Nwi_aCTmH4M50dLHCvpqlTSmAPxESNFaW6x89nvs7UPGEH1bXQ5s/exec'; // substituir
-    const API_TOKEN = '9deff0c6ff7224487669443fc8f6e4f1fb59a4bd9f18e79a9285902c8288c32f'; // substituir
+    // URL do seu deploy (fornecida)
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeGIHZYjGKg3bsLpKmljTCJIr-M51SEShlXF6YeRDUjd9R7iXfO8Z4N5VGVWqylOkK/exec';
+    // Token (deve ser o mesmo que está no Apps Script)
+    const API_TOKEN = '9deff0c6ff7224487669443fc8f6e4f1fb59a4bd9f18e79a9285902c8288c32f';
   </script>
 
-  <!-- Leaflet -->
+  <!-- Leaflet (opcional: só exibirá mapa se houver localização) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -40,7 +42,7 @@
 
     main{flex:1;display:flex;flex-direction:column;padding:10px;gap:10px}
 
-    #map{height:40vh;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+    #map{height:40vh;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06);display:none}
     .controls{display:flex;gap:10px;flex-wrap:wrap}
     button{
       border:0;border-radius:12px;padding:12px 14px;font-size:var(--touch);box-shadow:0 2px 8px rgba(0,0,0,0.06);
@@ -81,7 +83,7 @@
     </header>
 
     <main>
-      <div id="map" aria-label="Mapa" style="display:none"></div>
+      <div id="map" aria-label="Mapa"></div>
 
       <div class="panel" id="panel">
         <div id="locationBanner" style="margin-bottom:8px">
@@ -125,8 +127,8 @@
         <div style="margin-top:12px" class="small">
           <strong>Observações importantes:</strong>
           <ul>
-            <li>Localização é opcional — o registro será aceito mesmo sem ela (depende do Apps Script aceitar registros sem lat/long).</li>
-            <li>Se quiser que o servidor aceite registros sem localização, atualize o Apps Script (veja nota após o código).</li>
+            <li>Localização é opcional — o registro será aceito mesmo sem ela (o Apps Script que você já implantou aceita registros sem lat/long).</li>
+            <li>Se quiser melhorar UX, permita localização para preencher automaticamente.</li>
           </ul>
         </div>
       </div>
@@ -542,7 +544,7 @@
     /* ---------- Helpers ---------- */
     function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
 
-    // debug helpers
+    // expose for debug
     window.__app = { getHistory: loadHistory, clearHistory: ()=>{ localStorage.removeItem(KEY_HISTORY); }, getName: getUserName };
 
   </script>
