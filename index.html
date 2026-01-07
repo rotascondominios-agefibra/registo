@@ -46,11 +46,29 @@
   }
   textarea{min-height:92px;resize:vertical}
   .controls{display:flex;gap:10px;margin-top:12px;flex-direction:column}
-  button.primary{background:linear-gradient(90deg,var(--accent),#ffb366);color:#fff;border:0;box-shadow:0 8px 20px rgba(255,122,0,0.14);border-radius:12px}
-  button.ghost{background:transparent;border:1px solid #e6edf3;border-radius:12px}
+  button.primary{
+    background:linear-gradient(90deg,var(--accent),#ffb366);
+    color:#fff;border:0;box-shadow:0 8px 20px rgba(255,122,0,0.14);border-radius:12px;
+    transition: transform .06s ease, filter .06s ease, opacity .12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button.ghost{background:transparent;border:1px solid #e6edf3;border-radius:12px;transition:filter .06s ease}
+  button:disabled{opacity:0.6;cursor:not-allowed}
   .small{font-size:0.86rem;color:var(--muted)}
   .status-ok{color:var(--success);font-weight:700}
   .status-bad{color:var(--danger);font-weight:700}
+
+  /* visual pressed state */
+  button.primary:active,
+  button.primary.pressed {
+    filter: brightness(0.86);
+    transform: translateY(1px);
+  }
+  button.ghost:active,
+  button.ghost.pressed {
+    filter: brightness(0.9);
+    transform: translateY(1px);
+  }
 
   /* history item */
   .history-item{padding:10px;border-radius:10px;background:linear-gradient(180deg, #fff, #fbfbff);display:flex;flex-direction:column;gap:8px;border:1px solid #f1f5f9}
@@ -94,9 +112,13 @@
             <div style="display:flex;align-items:center;gap:10px">
               <!-- small location icon (svg) -->
               <svg class="icon-sm" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#0f172a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <div>
+              <div style="flex:1">
                 <div id="panelTitle" style="font-weight:700">Registrar visita</div>
-                <div id="locationStatus" class="small" style="margin-top:4px">Localização: <span class="status-bad">obrigatória</span></div>
+                <div style="display:flex;gap:12px;align-items:center;margin-top:4px">
+                  <div id="locationStatus" class="small">Localização: <span class="status-bad">obrigatória</span></div>
+                  <!-- ADDED: accuracyDisplay element (corrige erro JS quando ausente) -->
+                  <div id="accuracyDisplay" class="small" aria-live="polite"></div>
+                </div>
               </div>
             </div>
 
@@ -229,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClearLocal = document.getElementById('btnClearLocal');
   const syncStatus = document.getElementById('syncStatus');
   const locationStatus = document.getElementById('locationStatus');
-  const accuracyDisplay = document.getElementById('accuracyDisplay');
+  const accuracyDisplay = document.getElementById('accuracyDisplay'); // ADDED: now exists in DOM
   const toastEl = document.getElementById('toast');
 
   // map/geo state
@@ -287,7 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
     map.setView([lat,lon], 17, {animate:true});
     locationAvailable = true;
     locationStatus.innerHTML = `Local obtido • ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-    accuracyDisplay.textContent = `Precisão: ~${Math.round(acc)} m`;
+    if (accuracyDisplay) accuracyDisplay.textContent = `Precisão: ~${Math.round(acc)} m`;
+    // enable register only when condomínio preenchido e localização disponível
     btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
   }
 
@@ -296,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     locationAvailable = false;
     lastKnownPos = null;
     locationStatus.innerHTML = `<span class="status-bad">Localização indisponível</span> — verifique permissões e tente novamente.`;
-    accuracyDisplay.textContent = '';
+    if (accuracyDisplay) accuracyDisplay.textContent = '';
     btnRegister.disabled = true;
   }
 
@@ -513,6 +536,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // helpers
   function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+  // --- NEW: keep the register button in sync with condo input and location availability
+  condoInput.addEventListener('input', () => {
+    btnRegister.disabled = !(condoInput.value.trim() && locationAvailable);
+  });
+
+  // --- NEW: visual pressed feedback for touch & mouse (adds/removes .pressed class)
+  function applyPressFeedback(el){
+    if (!el) return;
+    el.addEventListener('touchstart', ()=> el.classList.add('pressed'), {passive:true});
+    el.addEventListener('touchend', ()=> el.classList.remove('pressed'));
+    el.addEventListener('touchcancel', ()=> el.classList.remove('pressed'));
+    el.addEventListener('mousedown', ()=> el.classList.add('pressed'));
+    document.addEventListener('mouseup', ()=> el.classList.remove('pressed'));
+  }
+  applyPressFeedback(btnRegister);
+  applyPressFeedback(btnUseLocation);
+  applyPressFeedback(btnNameSave);
+  applyPressFeedback(btnRegConfirm);
+  applyPressFeedback(btnRegCancel);
+  applyPressFeedback(btnHistory);
+  applyPressFeedback(btnRetryPending);
 
   // initial boot
   function startAfterName(){
